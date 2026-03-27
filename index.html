@@ -1226,12 +1226,12 @@ let editingDate = null;
 let editingShift = null;
 
 function openAddModal(date='', shift='morning') {
+  if (!isAdmin) return; // ป้องกัน view-only mode
   document.getElementById('editId').value = '';
   document.getElementById('modalTitle').textContent = 'เพิ่มตารางไลฟ์';
   document.getElementById('deleteBtn').style.display = 'none';
   document.getElementById('fDate').value = date || formatDate(currentYear, currentMonth, 1);
   document.getElementById('fShift').value = shift;
-  refreshChannelSelect(channels[0] || '');
   document.getElementById('fNote').value = '';
   document.querySelectorAll('.worker-toggle').forEach(b => b.classList.remove('selected'));
   document.getElementById('fTypeSolo').checked = true;
@@ -1244,6 +1244,7 @@ function openAddModal(date='', shift='morning') {
 }
 
 function openDayModal(dateStr, shift) {
+  if (!isAdmin) return;
   const entries = getForDate(dateStr).filter(e => e.shift === shift);
   if (entries.length > 0) {
     // Edit first entry
@@ -1288,16 +1289,15 @@ function saveEntry() {
   const id = document.getElementById('editId').value;
   const date = document.getElementById('fDate').value;
   const shift = document.getElementById('fShift').value;
-  const channel = document.getElementById('fChannel').value;
   const note = document.getElementById('fNote').value;
   const workers = [...document.querySelectorAll('.worker-toggle.selected')].map(b => b.dataset.person);
 
   if (!date) { alert('กรุณาเลือกวันที่'); return; }
+  if (selectedChannels.length === 0) { alert('กรุณาเลือกช่องไลฟ์อย่างน้อย 1 ช่อง'); return; }
 
   const liveType = document.querySelector('input[name="fType"]:checked')?.value || 'solo';
   const teamNum = document.querySelector('input[name="fTeam"]:checked')?.value || '1';
-  // channel เป็น array ของช่องที่เลือก
-  const channelList = selectedChannels.length > 0 ? selectedChannels : [channel || channels[0] || ''];
+  const channelList = [...selectedChannels];
   const entry = { date, shift, channel: channelList[0], channels: channelList, workers, note, liveType, teamNum };
 
   if (id) {
