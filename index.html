@@ -327,6 +327,10 @@
 
   /* ===== SCROLLBAR ===== */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
+
+  /* type badges */
+  .type-solo { background: rgba(72,202,228,.15); color: var(--col-morning); border: 1px solid var(--col-morning); padding: 2px 7px; border-radius: 10px; font-size: 9px; font-weight: 800; }
+  .type-duo  { background: rgba(255,107,157,.15); color: var(--accent); border: 1px solid var(--accent); padding: 2px 7px; border-radius: 10px; font-size: 9px; font-weight: 800; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
@@ -454,6 +458,23 @@
             <option value="morning">☀️ กะเช้า (08.00–16.00)</option>
             <option value="night">🌙 กะดึก (17.30–01.30)</option>
           </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group full">
+          <label class="form-label">ประเภทไลฟ์</label>
+          <div style="display:flex;gap:10px;margin-top:2px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 16px;border:2px solid var(--border);border-radius:8px;transition:all .15s;flex:1;justify-content:center" id="typeLabel_solo">
+              <input type="radio" name="fType" id="fTypeSolo" value="solo" checked style="display:none" onchange="updateTypeLabel()">
+              <span style="font-size:18px">🎤</span>
+              <span style="font-weight:700;font-size:13px">เดี่ยว</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 16px;border:2px solid var(--border);border-radius:8px;transition:all .15s;flex:1;justify-content:center" id="typeLabel_duo">
+              <input type="radio" name="fType" id="fTypeDuo" value="duo" style="display:none" onchange="updateTypeLabel()">
+              <span style="font-size:18px">👫</span>
+              <span style="font-weight:700;font-size:13px">คู่</span>
+            </label>
+          </div>
         </div>
       </div>
       <div class="form-row">
@@ -980,7 +1001,12 @@ function renderCalendar() {
           <div class="cell-date">${d}</div>
           ${renderCellWorkers(entries)}
           ${entries[0] ? `<div class="cell-channel">${entries[0].channel.split('/')[0].trim()}</div>` : ''}
-          ${entries[0]?.note ? `<div class="cell-note">📝</div>` : ''}
+          <div style="display:flex;gap:3px;margin-top:2px;flex-wrap:wrap">
+            ${entries.map(e => e.liveType === 'duo' 
+              ? `<span class="type-duo">👫คู่</span>` 
+              : `<span class="type-solo">🎤เดี่ยว</span>`).join('')}
+          </div>
+          ${entries.some(e=>e.note) ? `<div class="cell-note">📝</div>` : ''}
         </div>`;
       }).join('')}
     </div>`;
@@ -1047,7 +1073,12 @@ function renderList() {
           <div class="shift-time-label">☀️ กะเช้า</div>
           <div class="shift-time-range">08.00 – 16.00</div>
         </div>
-        <div class="shift-workers">${mEntries.length ? mEntries.flatMap(e=>e.workers).filter((v,i,a)=>a.indexOf(v)===i).map(w=>`<span class="worker-chip chip-${PERSON_COLOR[w]||'oom'}">${w}</span>`).join('') : '<span class="no-data">ไม่มีข้อมูล</span>'}</div>
+        <div class="shift-workers" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+          ${mEntries.length 
+            ? mEntries.flatMap(e=>e.workers).filter((v,i,a)=>a.indexOf(v)===i).map(w=>`<span class="worker-chip chip-${PERSON_COLOR[w]||'oom'}">${w}</span>`).join('')
+            : '<span class="no-data">ไม่มีข้อมูล</span>'}
+          ${mEntries.map(e=>e.liveType==='duo' ? '<span class="type-duo">👫 คู่</span>' : '<span class="type-solo">🎤 เดี่ยว</span>').join('')}
+        </div>
         <div class="shift-channel">${mEntries.map(e=>`${e.channel}`).join('<br>') || '<span style="color:var(--text-muted)">—</span>'}</div>
         <div class="shift-notes">${mEntries.filter(e=>e.note).map(e=>e.note).join('<br>') || ''}</div>
       </div>`;
@@ -1059,7 +1090,12 @@ function renderList() {
           <div class="shift-time-label">🌙 กะดึก</div>
           <div class="shift-time-range">17.30 – 01.30</div>
         </div>
-        <div class="shift-workers">${nEntries.length ? nEntries.flatMap(e=>e.workers).filter((v,i,a)=>a.indexOf(v)===i).map(w=>`<span class="worker-chip chip-${PERSON_COLOR[w]||'oom'}">${w}</span>`).join('') : '<span class="no-data">ไม่มีข้อมูล</span>'}</div>
+        <div class="shift-workers" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+          ${nEntries.length 
+            ? nEntries.flatMap(e=>e.workers).filter((v,i,a)=>a.indexOf(v)===i).map(w=>`<span class="worker-chip chip-${PERSON_COLOR[w]||'oom'}">${w}</span>`).join('')
+            : '<span class="no-data">ไม่มีข้อมูล</span>'}
+          ${nEntries.map(e=>e.liveType==='duo' ? '<span class="type-duo">👫 คู่</span>' : '<span class="type-solo">🎤 เดี่ยว</span>').join('')}
+        </div>
         <div class="shift-channel">${nEntries.map(e=>`${e.channel}`).join('<br>') || '<span style="color:var(--text-muted)">—</span>'}</div>
         <div class="shift-notes">${nEntries.filter(e=>e.note).map(e=>e.note).join('<br>') || ''}</div>
       </div>`;
@@ -1072,6 +1108,22 @@ function renderList() {
 }
 
 // ===== CONTROLS =====
+function updateTypeLabel() {
+  const isSolo = document.getElementById('fTypeSolo')?.checked;
+  const ls = document.getElementById('typeLabel_solo');
+  const ld = document.getElementById('typeLabel_duo');
+  if (ls) {
+    ls.style.borderColor = isSolo ? 'var(--col-morning)' : 'var(--border)';
+    ls.style.background  = isSolo ? 'rgba(72,202,228,.12)' : 'transparent';
+    ls.style.color       = isSolo ? 'var(--col-morning)' : 'var(--text-muted)';
+  }
+  if (ld) {
+    ld.style.borderColor = !isSolo ? 'var(--accent)' : 'var(--border)';
+    ld.style.background  = !isSolo ? 'rgba(255,107,157,.12)' : 'transparent';
+    ld.style.color       = !isSolo ? 'var(--accent)' : 'var(--text-muted)';
+  }
+}
+
 function changeMonth(delta) {
   currentMonth += delta;
   if (currentMonth > 11) { currentMonth = 0; currentYear++; }
@@ -1115,6 +1167,8 @@ function openAddModal(date='', shift='morning') {
   refreshChannelSelect(channels[0] || '');
   document.getElementById('fNote').value = '';
   document.querySelectorAll('.worker-toggle').forEach(b => b.classList.remove('selected'));
+  document.getElementById('fTypeSolo').checked = true;
+  updateTypeLabel();
   document.getElementById('modalOverlay').classList.add('open');
 }
 
@@ -1133,6 +1187,10 @@ function openDayModal(dateStr, shift) {
     document.querySelectorAll('.worker-toggle').forEach(b => {
       b.classList.toggle('selected', e.workers.includes(b.dataset.person));
     });
+    const t = e.liveType || 'solo';
+    document.getElementById('fTypeSolo').checked = t === 'solo';
+    document.getElementById('fTypeDuo').checked = t === 'duo';
+    updateTypeLabel();
     document.getElementById('modalOverlay').classList.add('open');
   } else {
     openAddModal(dateStr, shift);
@@ -1161,7 +1219,8 @@ function saveEntry() {
 
   if (!date) { alert('กรุณาเลือกวันที่'); return; }
 
-  const entry = { date, shift, channel, workers, note };
+  const liveType = document.querySelector('input[name="fType"]:checked')?.value || 'solo';
+  const entry = { date, shift, channel, workers, note, liveType };
 
   if (id) {
     const idx = scheduleData.findIndex(d => d.id == id);
