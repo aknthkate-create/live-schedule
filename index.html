@@ -331,6 +331,13 @@
   /* type badges */
   .type-solo { background: rgba(72,202,228,.15); color: var(--col-morning); border: 1px solid var(--col-morning); padding: 2px 7px; border-radius: 10px; font-size: 9px; font-weight: 800; }
   .type-duo  { background: rgba(255,107,157,.15); color: var(--accent); border: 1px solid var(--accent); padding: 2px 7px; border-radius: 10px; font-size: 9px; font-weight: 800; }
+  /* team row in list view */
+  .team-row { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 5px; }
+  .team-row:last-child { margin-bottom: 0; }
+  .team-header { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .team-tag { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px; }
+  .team-tag-1 { background: rgba(82,209,138,.15); color: var(--green); border: 1px solid var(--green); }
+  .team-tag-2 { background: rgba(244,162,97,.15); color: var(--accent4); border: 1px solid var(--accent4); }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
@@ -461,17 +468,32 @@
         </div>
       </div>
       <div class="form-row">
-        <div class="form-group full">
+        <div class="form-group">
+          <label class="form-label">ทีมที่</label>
+          <div style="display:flex;gap:8px;margin-top:2px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px 14px;border:2px solid var(--border);border-radius:8px;transition:all .15s;flex:1;justify-content:center" id="teamLabel_1">
+              <input type="radio" name="fTeam" id="fTeam1" value="1" checked style="display:none" onchange="updateTeamLabel()">
+              <span style="font-size:16px">1️⃣</span>
+              <span style="font-weight:700;font-size:13px">ทีม 1</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px 14px;border:2px solid var(--border);border-radius:8px;transition:all .15s;flex:1;justify-content:center" id="teamLabel_2">
+              <input type="radio" name="fTeam" id="fTeam2" value="2" style="display:none" onchange="updateTeamLabel()">
+              <span style="font-size:16px">2️⃣</span>
+              <span style="font-weight:700;font-size:13px">ทีม 2</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
           <label class="form-label">ประเภทไลฟ์</label>
-          <div style="display:flex;gap:10px;margin-top:2px">
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 16px;border:2px solid var(--border);border-radius:8px;transition:all .15s;flex:1;justify-content:center" id="typeLabel_solo">
+          <div style="display:flex;gap:8px;margin-top:2px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px 14px;border:2px solid var(--border);border-radius:8px;transition:all .15s;flex:1;justify-content:center" id="typeLabel_solo">
               <input type="radio" name="fType" id="fTypeSolo" value="solo" checked style="display:none" onchange="updateTypeLabel()">
-              <span style="font-size:18px">🎤</span>
+              <span style="font-size:16px">🎤</span>
               <span style="font-weight:700;font-size:13px">เดี่ยว</span>
             </label>
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 16px;border:2px solid var(--border);border-radius:8px;transition:all .15s;flex:1;justify-content:center" id="typeLabel_duo">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px 14px;border:2px solid var(--border);border-radius:8px;transition:all .15s;flex:1;justify-content:center" id="typeLabel_duo">
               <input type="radio" name="fType" id="fTypeDuo" value="duo" style="display:none" onchange="updateTypeLabel()">
-              <span style="font-size:18px">👫</span>
+              <span style="font-size:16px">👫</span>
               <span style="font-weight:700;font-size:13px">คู่</span>
             </label>
           </div>
@@ -1001,10 +1023,12 @@ function renderCalendar() {
           <div class="cell-date">${d}</div>
           ${renderCellWorkers(entries)}
           ${entries[0] ? `<div class="cell-channel">${entries[0].channel.split('/')[0].trim()}</div>` : ''}
-          <div style="display:flex;gap:3px;margin-top:2px;flex-wrap:wrap">
-            ${entries.map(e => e.liveType === 'duo' 
-              ? `<span class="type-duo">👫คู่</span>` 
-              : `<span class="type-solo">🎤เดี่ยว</span>`).join('')}
+          <div style="display:flex;gap:3px;margin-top:3px;flex-wrap:wrap">
+            ${entries.map(e => `
+              <span style="display:inline-flex;align-items:center;gap:2px">
+                <span style="font-size:8px;font-weight:800;padding:1px 5px;border-radius:8px;background:${e.teamNum==='2'?'rgba(244,162,97,.2)':'rgba(82,209,138,.2)'};color:${e.teamNum==='2'?'var(--accent4)':'var(--green)'}">T${e.teamNum||'1'}</span>
+                <span class="${e.liveType==='duo'?'type-duo':'type-solo'}">${e.liveType==='duo'?'👫คู่':'🎤เดี่ยว'}</span>
+              </span>`).join('')}
           </div>
           ${entries.some(e=>e.note) ? `<div class="cell-note">📝</div>` : ''}
         </div>`;
@@ -1073,11 +1097,16 @@ function renderList() {
           <div class="shift-time-label">☀️ กะเช้า</div>
           <div class="shift-time-range">08.00 – 16.00</div>
         </div>
-        <div class="shift-workers" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
-          ${mEntries.length 
-            ? mEntries.flatMap(e=>e.workers).filter((v,i,a)=>a.indexOf(v)===i).map(w=>`<span class="worker-chip chip-${PERSON_COLOR[w]||'oom'}">${w}</span>`).join('')
-            : '<span class="no-data">ไม่มีข้อมูล</span>'}
-          ${mEntries.map(e=>e.liveType==='duo' ? '<span class="type-duo">👫 คู่</span>' : '<span class="type-solo">🎤 เดี่ยว</span>').join('')}
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${mEntries.length ? mEntries.map(e=>`
+            <div class="team-row">
+              <div class="team-header">
+                <span class="team-tag ${e.teamNum==='2'?'team-tag-2':'team-tag-1'}">ทีม ${e.teamNum||'1'}</span>
+                <span class="${e.liveType==='duo'?'type-duo':'type-solo'}">${e.liveType==='duo'?'👫 คู่':'🎤 เดี่ยว'}</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px">${e.workers.map(w=>`<span class="worker-chip chip-${PERSON_COLOR[w]||'oom'}">${w}</span>`).join('')}</div>
+            </div>`).join('')
+          : '<span class="no-data">ไม่มีข้อมูล</span>'}
         </div>
         <div class="shift-channel">${mEntries.map(e=>`${e.channel}`).join('<br>') || '<span style="color:var(--text-muted)">—</span>'}</div>
         <div class="shift-notes">${mEntries.filter(e=>e.note).map(e=>e.note).join('<br>') || ''}</div>
@@ -1090,11 +1119,16 @@ function renderList() {
           <div class="shift-time-label">🌙 กะดึก</div>
           <div class="shift-time-range">17.30 – 01.30</div>
         </div>
-        <div class="shift-workers" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
-          ${nEntries.length 
-            ? nEntries.flatMap(e=>e.workers).filter((v,i,a)=>a.indexOf(v)===i).map(w=>`<span class="worker-chip chip-${PERSON_COLOR[w]||'oom'}">${w}</span>`).join('')
-            : '<span class="no-data">ไม่มีข้อมูล</span>'}
-          ${nEntries.map(e=>e.liveType==='duo' ? '<span class="type-duo">👫 คู่</span>' : '<span class="type-solo">🎤 เดี่ยว</span>').join('')}
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${nEntries.length ? nEntries.map(e=>`
+            <div class="team-row">
+              <div class="team-header">
+                <span class="team-tag ${e.teamNum==='2'?'team-tag-2':'team-tag-1'}">ทีม ${e.teamNum||'1'}</span>
+                <span class="${e.liveType==='duo'?'type-duo':'type-solo'}">${e.liveType==='duo'?'👫 คู่':'🎤 เดี่ยว'}</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px">${e.workers.map(w=>`<span class="worker-chip chip-${PERSON_COLOR[w]||'oom'}">${w}</span>`).join('')}</div>
+            </div>`).join('')
+          : '<span class="no-data">ไม่มีข้อมูล</span>'}
         </div>
         <div class="shift-channel">${nEntries.map(e=>`${e.channel}`).join('<br>') || '<span style="color:var(--text-muted)">—</span>'}</div>
         <div class="shift-notes">${nEntries.filter(e=>e.note).map(e=>e.note).join('<br>') || ''}</div>
@@ -1108,6 +1142,22 @@ function renderList() {
 }
 
 // ===== CONTROLS =====
+function updateTeamLabel() {
+  const isTeam1 = document.getElementById('fTeam1')?.checked;
+  const l1 = document.getElementById('teamLabel_1');
+  const l2 = document.getElementById('teamLabel_2');
+  if (l1) {
+    l1.style.borderColor = isTeam1 ? 'var(--green)' : 'var(--border)';
+    l1.style.background  = isTeam1 ? 'rgba(82,209,138,.12)' : 'transparent';
+    l1.style.color       = isTeam1 ? 'var(--green)' : 'var(--text-muted)';
+  }
+  if (l2) {
+    l2.style.borderColor = !isTeam1 ? 'var(--accent4)' : 'var(--border)';
+    l2.style.background  = !isTeam1 ? 'rgba(244,162,97,.12)' : 'transparent';
+    l2.style.color       = !isTeam1 ? 'var(--accent4)' : 'var(--text-muted)';
+  }
+}
+
 function updateTypeLabel() {
   const isSolo = document.getElementById('fTypeSolo')?.checked;
   const ls = document.getElementById('typeLabel_solo');
@@ -1168,7 +1218,9 @@ function openAddModal(date='', shift='morning') {
   document.getElementById('fNote').value = '';
   document.querySelectorAll('.worker-toggle').forEach(b => b.classList.remove('selected'));
   document.getElementById('fTypeSolo').checked = true;
+  document.getElementById('fTeam1').checked = true;
   updateTypeLabel();
+  updateTeamLabel();
   document.getElementById('modalOverlay').classList.add('open');
 }
 
@@ -1190,7 +1242,11 @@ function openDayModal(dateStr, shift) {
     const t = e.liveType || 'solo';
     document.getElementById('fTypeSolo').checked = t === 'solo';
     document.getElementById('fTypeDuo').checked = t === 'duo';
+    const tn = e.teamNum || '1';
+    document.getElementById('fTeam1').checked = tn === '1';
+    document.getElementById('fTeam2').checked = tn === '2';
     updateTypeLabel();
+    updateTeamLabel();
     document.getElementById('modalOverlay').classList.add('open');
   } else {
     openAddModal(dateStr, shift);
@@ -1220,7 +1276,8 @@ function saveEntry() {
   if (!date) { alert('กรุณาเลือกวันที่'); return; }
 
   const liveType = document.querySelector('input[name="fType"]:checked')?.value || 'solo';
-  const entry = { date, shift, channel, workers, note, liveType };
+  const teamNum = document.querySelector('input[name="fTeam"]:checked')?.value || '1';
+  const entry = { date, shift, channel, workers, note, liveType, teamNum };
 
   if (id) {
     const idx = scheduleData.findIndex(d => d.id == id);
