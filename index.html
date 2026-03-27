@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -368,7 +367,7 @@
       <div class="sidebar-label">เดือน</div>
       <div class="month-nav">
         <button onclick="changeMonth(-1)">‹</button>
-        <div class="month-name" id="monthName">มีนาคม 2568</div>
+        <div class="month-name" id="monthName">เมษายน 2569</div>
         <button onclick="changeMonth(1)">›</button>
       </div>
     </div>
@@ -404,7 +403,10 @@
 
     <!-- Channels -->
     <div class="sidebar-section">
-      <div class="sidebar-label">ช่องไลฟ์</div>
+      <div style="display:flex;align-items:center;margin-bottom:10px">
+        <div class="sidebar-label" style="margin-bottom:0">ช่องไลฟ์</div>
+        <button onclick="openChannelManager()" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;font-weight:600">✏️ จัดการ</button>
+      </div>
       <div class="channel-list" id="channelList"></div>
     </div>
   </div>
@@ -457,14 +459,24 @@
       <div class="form-row">
         <div class="form-group full">
           <label class="form-label">ช่องไลฟ์</label>
-          <select class="form-select" id="fChannel">
-            <option>Akane Thailand</option>
-            <option>โฟซีเอส โฟกัสคัมแบค / Puiinun thailand</option>
-            <option>แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand</option>
-            <option>Akane Thailand / บ้านอากาเนะ</option>
-            <option>แบรนด์ปุ๊ยนุ่น ช่องใหม่/ช่องแบรนด์ปุ๊ยนุ่น (ของแท้)</option>
-            <option>Akane Thailand / เพื่อนสาวป้ายยา</option>
-          </select>
+          <div style="position:relative" id="chDropdownWrap">
+            <input type="text" class="form-input" id="fChannelInput" 
+              placeholder="พิมพ์หรือเลือกช่องไลฟ์..."
+              autocomplete="off"
+              oninput="filterChannelDropdown(this.value)"
+              onfocus="showChannelDropdown()"
+              onblur="hideChannelDropdown()"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value;selectChannelOption(v||channels[0])}"
+              style="width:100%;padding-right:32px">
+            <input type="hidden" id="fChannel">
+            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;font-size:12px">▾</span>
+            <div id="chDropdownList" style="
+              display:none;position:absolute;top:100%;left:0;right:0;z-index:999;
+              background:var(--card);border:1px solid var(--accent);border-top:none;
+              border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;
+              box-shadow:0 8px 20px rgba(0,0,0,.4)">
+            </div>
+          </div>
         </div>
       </div>
       <div class="form-row">
@@ -495,6 +507,30 @@
   </div>
 </div>
 
+<!-- CHANNEL MANAGER MODAL -->
+<div class="modal-overlay" id="chModalOverlay" onclick="closeCHModalOnBg(event)" style="display:none">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title">📺 จัดการช่องไลฟ์</div>
+      <button class="modal-close" onclick="closeChannelManager()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:14px">
+        <div class="form-label" style="margin-bottom:8px">เพิ่มช่องใหม่</div>
+        <div style="display:flex;gap:8px">
+          <input type="text" class="form-input" id="newChInput" placeholder="ชื่อช่องไลฟ์..." style="flex:1" onkeydown="if(event.key==='Enter')addChannel()">
+          <button class="btn btn-primary" onclick="addChannel()" style="white-space:nowrap">+ เพิ่ม</button>
+        </div>
+      </div>
+      <div class="form-label" style="margin-bottom:8px">ช่องทั้งหมด</div>
+      <div id="chList" style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeChannelManager()">ปิด</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast">✅ บันทึกสำเร็จ</div>
 
@@ -509,7 +545,141 @@ const PERSON_COLOR = {
   'อ้อม': 'oom', 'อิ่ม': 'im', 'มุก': 'mook'
 };
 
-let currentYear = 2025, currentMonth = 2; // 0-indexed, March 2025
+// ===== CHANNELS (แก้ไขได้) =====
+let channels = [
+  'Akane Thailand',
+  'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',
+  'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',
+  'Akane Thailand / บ้านอากาเนะ',
+  'แบรนด์ปุ๊ยนุ่น ช่องใหม่/ช่องแบรนด์ปุ๊ยนุ่น (ของแท้)',
+  'Akane Thailand / เพื่อนสาวป้ายยา'
+];
+
+function refreshChannelSelect(selectVal) {
+  // For hidden input - just update value if provided
+  const inp = document.getElementById('fChannelInput');
+  const hid = document.getElementById('fChannel');
+  if (selectVal !== undefined) {
+    if (inp) inp.value = selectVal;
+    if (hid) hid.value = selectVal;
+  }
+}
+
+function showChannelDropdown() {
+  filterChannelDropdown(document.getElementById('fChannelInput')?.value || '');
+  document.getElementById('chDropdownList').style.display = 'block';
+}
+
+function hideChannelDropdown() {
+  setTimeout(() => {
+    const d = document.getElementById('chDropdownList');
+    if (d) d.style.display = 'none';
+    // If input text doesn't match any channel, keep as custom value
+    const inp = document.getElementById('fChannelInput');
+    const hid = document.getElementById('fChannel');
+    if (inp && hid) hid.value = inp.value;
+  }, 200);
+}
+
+function filterChannelDropdown(query) {
+  const list = document.getElementById('chDropdownList');
+  if (!list) return;
+  const q = query.toLowerCase();
+  const filtered = query ? channels.filter(c => c.toLowerCase().includes(q)) : channels;
+  
+  if (filtered.length === 0) {
+    list.innerHTML = `<div style="padding:10px 14px;color:var(--text-muted);font-size:12px">
+      ไม่พบช่อง — กด Enter เพื่อใช้ "<strong>${query}</strong>"
+    </div>`;
+  } else {
+    list.innerHTML = filtered.map(c => `
+      <div onclick="selectChannelOption('${c.replace(/'/g,"\'")}')" 
+        style="padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);transition:background .1s"
+        onmouseover="this.style.background='var(--border)'"
+        onmouseout="this.style.background='transparent'">
+        📺 ${c}
+      </div>`).join('');
+  }
+  list.style.display = 'block';
+}
+
+function selectChannelOption(ch) {
+  const inp = document.getElementById('fChannelInput');
+  const hid = document.getElementById('fChannel');
+  const list = document.getElementById('chDropdownList');
+  if (inp) inp.value = ch;
+  if (hid) hid.value = ch;
+  if (list) list.style.display = 'none';
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('chDropdownWrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const list = document.getElementById('chDropdownList');
+    if (list) list.style.display = 'none';
+    const inp = document.getElementById('fChannelInput');
+    const hid = document.getElementById('fChannel');
+    if (inp && hid) hid.value = inp.value;
+  }
+});
+
+function openChannelManager() {
+  renderChList();
+  const ov = document.getElementById('chModalOverlay');
+  ov.style.display = 'flex';
+  ov.style.animation = 'fadeIn .2s';
+}
+
+function closeChannelManager() {
+  document.getElementById('chModalOverlay').style.display = 'none';
+  refreshChannelSelect();
+  updateSidebar();
+  showToast('💾 บันทึกช่องไลฟ์แล้ว');
+}
+
+function closeCHModalOnBg(e) {
+  if (e.target === document.getElementById('chModalOverlay')) closeChannelManager();
+}
+
+function renderChList() {
+  const el = document.getElementById('chList');
+  if (!el) return;
+  el.innerHTML = channels.map((c, i) => `
+    <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px">
+      <span style="width:20px;height:20px;background:var(--accent2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0">${i+1}</span>
+      <input id="ch_${i}" value="${c.replace(/"/g,'&quot;')}" style="flex:1;background:transparent;border:none;color:var(--text);font-family:'Sarabun',sans-serif;font-size:13px;outline:none" onchange="channels[${i}]=this.value">
+      <button onclick="moveChannel(${i},-1)" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 4px" title="เลื่อนขึ้น">↑</button>
+      <button onclick="moveChannel(${i},1)" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 4px" title="เลื่อนลง">↓</button>
+      <button onclick="deleteChannel(${i})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:14px;padding:2px 4px" title="ลบ">✕</button>
+    </div>`).join('');
+}
+
+function addChannel() {
+  const inp = document.getElementById('newChInput');
+  const val = inp.value.trim();
+  if (!val) return;
+  if (channels.includes(val)) { showToast('⚠️ ชื่อนี้มีอยู่แล้ว'); return; }
+  channels.push(val);
+  inp.value = '';
+  renderChList();
+  showToast('✅ เพิ่มช่องแล้ว');
+}
+
+function deleteChannel(i) {
+  if (!confirm(`ลบช่อง "${channels[i]}" ?`)) return;
+  channels.splice(i, 1);
+  renderChList();
+}
+
+function moveChannel(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= channels.length) return;
+  [channels[i], channels[j]] = [channels[j], channels[i]];
+  renderChList();
+}
+
+let currentYear = new Date().getFullYear(), currentMonth = new Date().getMonth(); // use actual current date
 let currentView = 'calendar';
 let currentFilter = 'all';
 let activeWorker = null;
@@ -573,7 +743,134 @@ let scheduleData = [
   {id:55, date:'2025-03-31', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['กล้วย','มุก'],note:'14:00 ป้อนถ่ายกล้วย / 15:00 ป้อนถ่ายมุก'},
   {id:56, date:'2025-03-31', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['จาม'],note:''},
 ];
-let nextId = 100;
+// ===== เมษายน 2026 (พ.ศ. 2569) =====
+// เมษายน 2026 เริ่มวันพุธ (DOW=3), 30 วัน
+// วันหยุด: 6 (วันจักรี), 13-15 (สงกรานต์)
+scheduleData.push(
+  // 1 พ - กล้วย+อ้อม
+  {id:101, date:'2026-04-01', shift:'morning', channel:'Akane Thailand',                              workers:['กล้วย'],       note:''},
+  {id:102, date:'2026-04-01', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['อ้อม'],        note:''},
+  {id:103, date:'2026-04-01', shift:'night',   channel:'Akane Thailand',                              workers:['มุก'],         note:''},
+  {id:104, date:'2026-04-01', shift:'night',   channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['จำ'],          note:''},
+  // 2 ศ - แฟร้ง+อิ่ม
+  {id:105, date:'2026-04-02', shift:'morning', channel:'Akane Thailand',                              workers:['แฟร้ง'],       note:''},
+  {id:106, date:'2026-04-02', shift:'morning', channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['อิ่ม'],        note:''},
+  {id:107, date:'2026-04-02', shift:'night',   channel:'Akane Thailand',                              workers:['กล้วย'],       note:''},
+  {id:108, date:'2026-04-02', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['อ้อม'],        note:''},
+  // 3 ส - สลับถ่าย
+  {id:109, date:'2026-04-03', shift:'morning', channel:'Akane Thailand',                              workers:['อิ่ม','แฟร้ง'],note:'09:00 ป้อนถ่ายอิ่ม / 10:00 ป้อนถ่ายแฟร้ง'},
+  {id:110, date:'2026-04-03', shift:'night',   channel:'Akane Thailand / บ้านอากาเนะ',               workers:['กล้วย','อ้อม'],note:'16:00 กล้วย หน้ากล้อง อ้อม บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  // 4 อา
+  {id:111, date:'2026-04-04', shift:'morning', channel:'Akane Thailand',                              workers:['จำ'],          note:''},
+  {id:112, date:'2026-04-04', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['มุก'],         note:''},
+  {id:113, date:'2026-04-04', shift:'night',   channel:'Akane Thailand',                              workers:['แฟร้ง','อิ่ม'],note:'16:00 แฟร้ง หน้ากล้อง อิ่ม บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  // 5 จ
+  {id:114, date:'2026-04-05', shift:'morning', channel:'Akane Thailand',                              workers:['อ้อม'],        note:''},
+  {id:115, date:'2026-04-05', shift:'morning', channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['กล้วย'],       note:''},
+  {id:116, date:'2026-04-05', shift:'night',   channel:'Akane Thailand',                              workers:['จำ'],          note:''},
+  {id:117, date:'2026-04-05', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['มุก'],         note:''},
+  // 6 อ - วันจักรี (หยุด) ไลฟ์กะดึกเท่านั้น
+  {id:118, date:'2026-04-06', shift:'night',   channel:'Akane Thailand',                              workers:['มุก','จำ'],    note:'วันจักรี - ไลฟ์กะดึกเท่านั้น'},
+  // 7 พ
+  {id:119, date:'2026-04-07', shift:'morning', channel:'Akane Thailand',                              workers:['กล้วย'],       note:''},
+  {id:120, date:'2026-04-07', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['มุก'],         note:''},
+  {id:121, date:'2026-04-07', shift:'night',   channel:'Akane Thailand',                              workers:['อิ่ม'],        note:''},
+  {id:122, date:'2026-04-07', shift:'night',   channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['แฟร้ง'],       note:''},
+  // 8 พฤ
+  {id:123, date:'2026-04-08', shift:'morning', channel:'Akane Thailand',                              workers:['จำ'],          note:'09:00 ป้อนถ่ายจำ / 10:00 ป้อนถ่ายอ้อม'},
+  {id:124, date:'2026-04-08', shift:'morning', channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['อ้อม'],        note:''},
+  {id:125, date:'2026-04-08', shift:'night',   channel:'Akane Thailand',                              workers:['กล้วย'],       note:''},
+  {id:126, date:'2026-04-08', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['อ้อม'],        note:''},
+  // 9 ศ
+  {id:127, date:'2026-04-09', shift:'morning', channel:'Akane Thailand',                              workers:['แฟร้ง'],       note:''},
+  {id:128, date:'2026-04-09', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['อิ่ม'],        note:''},
+  {id:129, date:'2026-04-09', shift:'night',   channel:'Akane Thailand',                              workers:['จำ'],          note:''},
+  {id:130, date:'2026-04-09', shift:'night',   channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['มุก'],         note:''},
+  // 10 ส - สลับถ่าย
+  {id:131, date:'2026-04-10', shift:'morning', channel:'Akane Thailand',                              workers:['กล้วย','จำ'],  note:'จำ หน้ากล้อง กล้วย บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  {id:132, date:'2026-04-10', shift:'night',   channel:'Akane Thailand / บ้านอากาเนะ',               workers:['อ้อม','อิ่ม'], note:'16:00 อ้อม หน้ากล้อง อิ่ม บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  // 11 อา
+  {id:133, date:'2026-04-11', shift:'morning', channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['มุก'],         note:''},
+  {id:134, date:'2026-04-11', shift:'morning', channel:'Akane Thailand',                              workers:['แฟร้ง'],       note:''},
+  {id:135, date:'2026-04-11', shift:'night',   channel:'Akane Thailand',                              workers:['กล้วย','มุก'], note:'16:00 กล้วย หน้ากล้อง มุก บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  // 12 จ
+  {id:136, date:'2026-04-12', shift:'morning', channel:'Akane Thailand',                              workers:['อ้อม'],        note:''},
+  {id:137, date:'2026-04-12', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['จำ'],          note:''},
+  {id:138, date:'2026-04-12', shift:'night',   channel:'Akane Thailand',                              workers:['อิ่ม'],        note:''},
+  {id:139, date:'2026-04-12', shift:'night',   channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['แฟร้ง'],       note:''},
+  // 13 อ - วันสงกรานต์ (หยุด)
+  {id:140, date:'2026-04-13', shift:'night',   channel:'Akane Thailand',                              workers:['กล้วย'],       note:'วันสงกรานต์'},
+  // 14 พ - วันสงกรานต์ (หยุด)
+  {id:141, date:'2026-04-14', shift:'night',   channel:'Akane Thailand',                              workers:['มุก'],         note:'วันสงกรานต์'},
+  // 15 พฤ - วันสงกรานต์ (หยุด)
+  {id:142, date:'2026-04-15', shift:'night',   channel:'Akane Thailand',                              workers:['จำ'],          note:'วันสงกรานต์'},
+  // 16 ศ - กลับมาปกติ
+  {id:143, date:'2026-04-16', shift:'morning', channel:'Akane Thailand',                              workers:['กล้วย'],       note:''},
+  {id:144, date:'2026-04-16', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['อ้อม'],        note:''},
+  {id:145, date:'2026-04-16', shift:'night',   channel:'Akane Thailand',                              workers:['แฟร้ง'],       note:''},
+  {id:146, date:'2026-04-16', shift:'night',   channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['อิ่ม'],        note:''},
+  // 17 ส
+  {id:147, date:'2026-04-17', shift:'morning', channel:'Akane Thailand',                              workers:['จำ','มุก'],    note:'09:00 ป้อนถ่ายจำ / 10:00 ป้อนถ่ายมุก'},
+  {id:148, date:'2026-04-17', shift:'night',   channel:'Akane Thailand / บ้านอากาเนะ',               workers:['กล้วย','แฟร้ง'],note:'16:00 กล้วย หน้ากล้อง แฟร้ง บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  // 18 อา
+  {id:149, date:'2026-04-18', shift:'morning', channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['อ้อม'],        note:''},
+  {id:150, date:'2026-04-18', shift:'morning', channel:'Akane Thailand',                              workers:['อิ่ม'],        note:''},
+  {id:151, date:'2026-04-18', shift:'night',   channel:'Akane Thailand',                              workers:['จำ','มุก'],    note:'16:00 จำ หน้ากล้อง มุก บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  // 19 จ
+  {id:152, date:'2026-04-19', shift:'morning', channel:'Akane Thailand',                              workers:['กล้วย'],       note:''},
+  {id:153, date:'2026-04-19', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['แฟร้ง'],       note:''},
+  {id:154, date:'2026-04-19', shift:'night',   channel:'Akane Thailand',                              workers:['อ้อม'],        note:''},
+  {id:155, date:'2026-04-19', shift:'night',   channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['อิ่ม'],        note:''},
+  // 20 อ
+  {id:156, date:'2026-04-20', shift:'morning', channel:'Akane Thailand',                              workers:['มุก'],         note:''},
+  {id:157, date:'2026-04-20', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['จำ'],          note:''},
+  {id:158, date:'2026-04-20', shift:'night',   channel:'Akane Thailand',                              workers:['กล้วย'],       note:''},
+  {id:159, date:'2026-04-20', shift:'night',   channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['แฟร้ง'],       note:''},
+  // 21 พ
+  {id:160, date:'2026-04-21', shift:'morning', channel:'Akane Thailand',                              workers:['อิ่ม'],        note:''},
+  {id:161, date:'2026-04-21', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['อ้อม'],        note:''},
+  {id:162, date:'2026-04-21', shift:'night',   channel:'Akane Thailand',                              workers:['มุก'],         note:''},
+  {id:163, date:'2026-04-21', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['จำ'],          note:''},
+  // 22 พฤ
+  {id:164, date:'2026-04-22', shift:'morning', channel:'Akane Thailand',                              workers:['กล้วย','อ้อม'],note:'09:00 ป้อนถ่ายกล้วย / 10:00 ป้อนถ่ายอ้อม'},
+  {id:165, date:'2026-04-22', shift:'night',   channel:'Akane Thailand',                              workers:['แฟร้ง'],       note:''},
+  // 23 ศ
+  {id:166, date:'2026-04-23', shift:'morning', channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['อิ่ม'],        note:''},
+  {id:167, date:'2026-04-23', shift:'morning', channel:'Akane Thailand',                              workers:['มุก'],         note:''},
+  {id:168, date:'2026-04-23', shift:'night',   channel:'Akane Thailand',                              workers:['กล้วย'],       note:''},
+  {id:169, date:'2026-04-23', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['อ้อม'],        note:''},
+  // 24 ส - สลับถ่าย
+  {id:170, date:'2026-04-24', shift:'morning', channel:'Akane Thailand',                              workers:['แฟร้ง','จำ'],  note:'แฟร้ง หน้ากล้อง จำ บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  {id:171, date:'2026-04-24', shift:'night',   channel:'Akane Thailand / บ้านอากาเนะ',               workers:['อิ่ม','มุก'],  note:'16:00 อิ่ม หน้ากล้อง มุก บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  // 25 อา
+  {id:172, date:'2026-04-25', shift:'morning', channel:'Akane Thailand',                              workers:['กล้วย'],       note:''},
+  {id:173, date:'2026-04-25', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['อ้อม'],        note:''},
+  {id:174, date:'2026-04-25', shift:'night',   channel:'Akane Thailand',                              workers:['จำ','แฟร้ง'],  note:'16:00 จำ หน้ากล้อง แฟร้ง บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  // 26 จ
+  {id:175, date:'2026-04-26', shift:'morning', channel:'Akane Thailand',                              workers:['อิ่ม'],        note:''},
+  {id:176, date:'2026-04-26', shift:'morning', channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['มุก'],         note:''},
+  {id:177, date:'2026-04-26', shift:'night',   channel:'Akane Thailand',                              workers:['กล้วย'],       note:''},
+  {id:178, date:'2026-04-26', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['อ้อม'],        note:''},
+  // 27 อ
+  {id:179, date:'2026-04-27', shift:'morning', channel:'Akane Thailand',                              workers:['แฟร้ง'],       note:''},
+  {id:180, date:'2026-04-27', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['จำ'],          note:''},
+  {id:181, date:'2026-04-27', shift:'night',   channel:'Akane Thailand',                              workers:['อิ่ม'],        note:''},
+  {id:182, date:'2026-04-27', shift:'night',   channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['มุก'],         note:''},
+  // 28 พ
+  {id:183, date:'2026-04-28', shift:'morning', channel:'Akane Thailand',                              workers:['อ้อม'],        note:'09:00 ป้อนถ่ายอ้อม / 10:00 ป้อนถ่ายกล้วย'},
+  {id:184, date:'2026-04-28', shift:'morning', channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['กล้วย'],       note:''},
+  {id:185, date:'2026-04-28', shift:'night',   channel:'Akane Thailand',                              workers:['แฟร้ง'],       note:''},
+  {id:186, date:'2026-04-28', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['จำ'],          note:''},
+  // 29 พฤ
+  {id:187, date:'2026-04-29', shift:'morning', channel:'Akane Thailand',                              workers:['มุก'],         note:''},
+  {id:188, date:'2026-04-29', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['อิ่ม'],        note:''},
+  {id:189, date:'2026-04-29', shift:'night',   channel:'Akane Thailand',                              workers:['อ้อม'],        note:''},
+  {id:190, date:'2026-04-29', shift:'night',   channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['กล้วย'],       note:''},
+  // 30 ศ
+  {id:191, date:'2026-04-30', shift:'morning', channel:'Akane Thailand',                              workers:['แฟร้ง','จำ'],  note:'14:00 ป้อนถ่ายแฟร้ง / 15:00 ป้อนถ่ายจำ'},
+  {id:192, date:'2026-04-30', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',    workers:['อิ่ม','มุก'],  note:'16:00 อิ่ม หน้ากล้อง มุก บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'}
+);
+let nextId = 200;
 
 // ===== HELPERS =====
 function getMonthData() {
@@ -815,7 +1112,7 @@ function openAddModal(date='', shift='morning') {
   document.getElementById('deleteBtn').style.display = 'none';
   document.getElementById('fDate').value = date || formatDate(currentYear, currentMonth, 1);
   document.getElementById('fShift').value = shift;
-  document.getElementById('fChannel').value = 'Akane Thailand';
+  refreshChannelSelect(channels[0] || '');
   document.getElementById('fNote').value = '';
   document.querySelectorAll('.worker-toggle').forEach(b => b.classList.remove('selected'));
   document.getElementById('modalOverlay').classList.add('open');
@@ -831,7 +1128,7 @@ function openDayModal(dateStr, shift) {
     document.getElementById('deleteBtn').style.display = 'block';
     document.getElementById('fDate').value = dateStr;
     document.getElementById('fShift').value = e.shift;
-    document.getElementById('fChannel').value = e.channel;
+    refreshChannelSelect(e.channel);
     document.getElementById('fNote').value = e.note || '';
     document.querySelectorAll('.worker-toggle').forEach(b => {
       b.classList.toggle('selected', e.workers.includes(b.dataset.person));
