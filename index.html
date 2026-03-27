@@ -1,1 +1,914 @@
 
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบจัดการตารางไลฟ์สด</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Kanit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f17;
+    --surface: #16161f;
+    --card: #1e1e2e;
+    --border: #2a2a3e;
+    --accent: #ff6b9d;
+    --accent2: #c77dff;
+    --accent3: #48cae4;
+    --accent4: #f4a261;
+    --green: #52d18a;
+    --text: #e8e8f0;
+    --text-muted: #7878a0;
+    --shift-morning: #1a3a4a;
+    --shift-night: #2a1a3a;
+    --col-morning: #48cae4;
+    --col-night: #c77dff;
+
+    /* person colors */
+    --kluay: #ff6b9d;
+    --farang: #f4a261;
+    --jam: #52d18a;
+    --oom: #48cae4;
+    --im: #c77dff;
+    --mook: #f9c74f;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Sarabun', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    background: linear-gradient(135deg, #1a0a2e 0%, #0f0f17 60%);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+  .header-logo {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 0 20px rgba(255,107,157,0.4);
+  }
+  .header-title { font-family: 'Kanit', sans-serif; font-weight: 800; font-size: 20px; }
+  .header-sub { font-size: 12px; color: var(--text-muted); }
+  .header-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .btn {
+    padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
+    font-family: 'Sarabun', sans-serif; font-size: 13px; font-weight: 600;
+    transition: all .2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(255,107,157,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,107,157,0.4); }
+  .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ===== LAYOUT ===== */
+  .layout { display: flex; height: calc(100vh - 73px); }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    width: 240px; min-width: 240px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+  .sidebar-section { padding: 16px; border-bottom: 1px solid var(--border); }
+  .sidebar-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 10px; font-weight: 600; }
+
+  .month-nav { display: flex; align-items: center; gap: 8px; }
+  .month-nav button { background: none; border: 1px solid var(--border); color: var(--text); border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .month-nav button:hover { border-color: var(--accent); color: var(--accent); }
+  .month-name { flex: 1; text-align: center; font-family: 'Kanit', sans-serif; font-weight: 600; font-size: 14px; }
+
+  .team-list { display: flex; flex-direction: column; gap: 6px; }
+  .team-member {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 8px; cursor: pointer;
+    transition: background .15s;
+  }
+  .team-member:hover { background: var(--card); }
+  .team-member.active { background: var(--card); }
+  .member-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .member-name { font-size: 13px; font-weight: 500; }
+  .member-badge { margin-left: auto; background: var(--border); color: var(--text-muted); font-size: 10px; padding: 2px 6px; border-radius: 10px; }
+
+  .channel-list { display: flex; flex-direction: column; gap: 4px; }
+  .channel-item {
+    padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
+    border: 1px solid transparent; transition: all .15s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .channel-item:hover { border-color: var(--accent2); color: var(--accent2); }
+  .channel-item.active { border-color: var(--accent2); background: rgba(199,125,255,.1); color: var(--accent2); }
+
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-card { background: var(--card); border-radius: 8px; padding: 10px; text-align: center; }
+  .stat-num { font-family: 'Kanit', sans-serif; font-size: 22px; font-weight: 700; }
+  .stat-label { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ===== MAIN ===== */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  .toolbar {
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface);
+  }
+  .view-tabs { display: flex; background: var(--card); border-radius: 8px; padding: 3px; gap: 2px; }
+  .view-tab { padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-muted); transition: all .15s; }
+  .view-tab.active { background: var(--accent); color: #fff; }
+  .filter-group { display: flex; gap: 6px; margin-left: auto; }
+  .filter-chip {
+    padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+    cursor: pointer; transition: all .15s;
+  }
+  .filter-chip.active { border-color: var(--accent3); color: var(--accent3); background: rgba(72,202,228,.1); }
+
+  .calendar-wrap { flex: 1; overflow-y: auto; padding: 16px 20px; }
+
+  /* ===== CALENDAR GRID ===== */
+  .cal-header { display: grid; grid-template-columns: 80px 30px repeat(7, 1fr); gap: 4px; margin-bottom: 6px; }
+  .cal-header-cell { font-size: 11px; font-weight: 700; color: var(--text-muted); text-align: center; padding: 4px; text-transform: uppercase; letter-spacing: 1px; }
+
+  .week-row { display: grid; grid-template-columns: 80px 30px repeat(7, 1fr); gap: 4px; margin-bottom: 4px; }
+  .shift-label {
+    display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 8px; font-size: 10px; color: var(--text-muted); font-weight: 600;
+  }
+  .shift-indicator {
+    display: flex; align-items: center; justify-content: center;
+  }
+  .shift-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  .day-cell {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px;
+    min-height: 72px;
+    cursor: pointer;
+    transition: all .15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .day-cell:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+  .day-cell.morning { background: linear-gradient(180deg, var(--shift-morning), var(--card)); }
+  .day-cell.night { background: linear-gradient(180deg, var(--shift-night), var(--card)); }
+  .day-cell.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .day-cell.empty { background: transparent; border-color: transparent; cursor: default; }
+  .day-cell.empty:hover { transform: none; box-shadow: none; }
+
+  .cell-date { font-size: 10px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; }
+  .cell-workers { display: flex; flex-wrap: wrap; gap: 3px; }
+  .worker-chip {
+    padding: 2px 6px; border-radius: 10px; font-size: 10px; font-weight: 600;
+    color: #fff;
+  }
+  .cell-channel { font-size: 9px; color: var(--text-muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cell-note { font-size: 9px; color: var(--accent4); margin-top: 2px; }
+
+  /* person colors */
+  .chip-kluay { background: var(--kluay); }
+  .chip-farang { background: var(--farang); }
+  .chip-jam { background: var(--jam); }
+  .chip-oom { background: var(--oom); }
+  .chip-im { background: var(--im); }
+  .chip-mook { background: var(--mook); color: #333; }
+
+  /* ===== LIST VIEW ===== */
+  .list-view { display: none; flex-direction: column; gap: 4px; }
+  .list-view.active { display: flex; }
+  .cal-grid.active { display: block; }
+  .cal-grid { display: none; }
+
+  .list-day {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .list-day-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px;
+    background: rgba(255,255,255,.03);
+    border-bottom: 1px solid var(--border);
+  }
+  .list-day-num { font-family: 'Kanit', sans-serif; font-size: 24px; font-weight: 800; line-height: 1; }
+  .list-day-info { flex: 1; }
+  .list-day-name { font-size: 13px; font-weight: 600; }
+  .list-day-date { font-size: 11px; color: var(--text-muted); }
+
+  .shift-row {
+    display: grid; grid-template-columns: 160px 1fr 180px 220px;
+    align-items: start; padding: 10px 16px; gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,.04);
+  }
+  .shift-row:last-child { border-bottom: none; }
+  .shift-row.morning-row { background: rgba(72,202,228,.03); }
+  .shift-row.night-row { background: rgba(199,125,255,.04); }
+
+  .shift-time {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .shift-time-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+  }
+  .morning .shift-time-label { color: var(--col-morning); }
+  .night .shift-time-label { color: var(--col-night); }
+  .shift-time-range { font-size: 12px; color: var(--text-muted); }
+
+  .shift-workers { display: flex; flex-wrap: wrap; gap: 5px; }
+  .shift-channel { font-size: 12px; color: var(--text); }
+  .shift-channel span { color: var(--text-muted); font-size: 11px; display: block; margin-top: 2px; }
+  .shift-notes { font-size: 11px; color: var(--accent4); line-height: 1.5; }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.7); z-index: 200;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; animation: fadeIn .2s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 560px; max-height: 85vh;
+    overflow-y: auto;
+    animation: slideUp .25s;
+  }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  .modal-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .modal-title { font-family: 'Kanit', sans-serif; font-size: 18px; font-weight: 700; flex: 1; }
+  .modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px; padding: 4px; line-height: 1; }
+  .modal-close:hover { color: var(--accent); }
+  .modal-body { padding: 20px 24px; }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1/-1; }
+  .form-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+  .form-input, .form-select, .form-textarea {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Sarabun', sans-serif;
+    font-size: 13px;
+    padding: 8px 12px;
+    outline: none;
+    transition: border .15s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+  .form-textarea { min-height: 70px; resize: vertical; }
+
+  .worker-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+  .worker-toggle {
+    padding: 5px 14px; border-radius: 20px; cursor: pointer;
+    font-size: 12px; font-weight: 700; border: 2px solid var(--border);
+    background: transparent; color: var(--text-muted); transition: all .15s;
+  }
+  .worker-toggle.selected { color: #fff; }
+  .worker-toggle[data-person="กล้วย"].selected { border-color: var(--kluay); background: var(--kluay); }
+  .worker-toggle[data-person="แฟร้ง"].selected { border-color: var(--farang); background: var(--farang); }
+  .worker-toggle[data-person="จำ"].selected { border-color: var(--jam); background: var(--jam); color: #fff; }
+  .worker-toggle[data-person="อ้อม"].selected { border-color: var(--oom); background: var(--oom); }
+  .worker-toggle[data-person="อิ่ม"].selected { border-color: var(--im); background: var(--im); }
+  .worker-toggle[data-person="มุก"].selected { border-color: var(--mook); background: var(--mook); color: #333; }
+
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 10px; justify-content: flex-end;
+  }
+
+  /* ===== TOAST ===== */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--green); color: #fff;
+    padding: 12px 20px; border-radius: 10px;
+    font-size: 13px; font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+    z-index: 300;
+    animation: toastIn .3s;
+    display: none;
+  }
+  .toast.show { display: block; }
+  @keyframes toastIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* ===== SCROLLBAR ===== */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  .day-badge-today {
+    position: absolute; top: 4px; right: 4px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+  }
+
+  .no-data { color: var(--text-muted); font-size: 12px; font-style: italic; padding: 8px 0; }
+
+  select option { background: var(--card); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-logo">🎬</div>
+  <div>
+    <div class="header-title">ระบบจัดการตารางไลฟ์สด</div>
+    <div class="header-sub">Akane Thailand Team</div>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-ghost" onclick="exportData()">📥 Export</button>
+    <button class="btn btn-primary" onclick="openAddModal()">+ เพิ่มตาราง</button>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <!-- Month Nav -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">เดือน</div>
+      <div class="month-nav">
+        <button onclick="changeMonth(-1)">‹</button>
+        <div class="month-name" id="monthName">มีนาคม 2568</div>
+        <button onclick="changeMonth(1)">›</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">สถิติเดือนนี้</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-num" id="statTotal" style="color:var(--accent)">0</div>
+          <div class="stat-label">ไลฟ์ทั้งหมด</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statDays" style="color:var(--accent3)">0</div>
+          <div class="stat-label">วันที่มีไลฟ์</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statMorning" style="color:var(--col-morning)">0</div>
+          <div class="stat-label">กะเช้า</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statNight" style="color:var(--col-night)">0</div>
+          <div class="stat-label">กะดึก</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Team -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">ทีมไลฟ์</div>
+      <div class="team-list" id="teamList"></div>
+    </div>
+
+    <!-- Channels -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">ช่องไลฟ์</div>
+      <div class="channel-list" id="channelList"></div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="toolbar">
+      <div class="view-tabs">
+        <div class="view-tab active" onclick="setView('calendar', this)">📅 ปฏิทิน</div>
+        <div class="view-tab" onclick="setView('list', this)">📋 รายวัน</div>
+      </div>
+      <div class="filter-group">
+        <div class="filter-chip active" onclick="toggleFilter('all', this)">ทั้งหมด</div>
+        <div class="filter-chip" onclick="toggleFilter('morning', this)">☀️ กะเช้า</div>
+        <div class="filter-chip" onclick="toggleFilter('night', this)">🌙 กะดึก</div>
+      </div>
+    </div>
+
+    <div class="calendar-wrap">
+      <!-- Calendar View -->
+      <div id="calGrid" class="cal-grid active"></div>
+      <!-- List View -->
+      <div id="listView" class="list-view"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOnBg(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">เพิ่มตารางไลฟ์</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editId">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">วันที่</label>
+          <input type="date" class="form-input" id="fDate">
+        </div>
+        <div class="form-group">
+          <label class="form-label">กะ</label>
+          <select class="form-select" id="fShift">
+            <option value="morning">☀️ กะเช้า (08.00–16.00)</option>
+            <option value="night">🌙 กะดึก (17.30–01.30)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group full">
+          <label class="form-label">ช่องไลฟ์</label>
+          <select class="form-select" id="fChannel">
+            <option>Akane Thailand</option>
+            <option>โฟซีเอส โฟกัสคัมแบค / Puiinun thailand</option>
+            <option>แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand</option>
+            <option>Akane Thailand / บ้านอากาเนะ</option>
+            <option>แบรนด์ปุ๊ยนุ่น ช่องใหม่/ช่องแบรนด์ปุ๊ยนุ่น (ของแท้)</option>
+            <option>Akane Thailand / เพื่อนสาวป้ายยา</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group full">
+          <label class="form-label">ผู้ปฏิบัติงาน</label>
+          <div class="worker-picker">
+            <button type="button" class="worker-toggle" data-person="กล้วย" onclick="toggleWorker(this)">กล้วย</button>
+            <button type="button" class="worker-toggle" data-person="แฟร้ง" onclick="toggleWorker(this)">แฟร้ง</button>
+            <button type="button" class="worker-toggle" data-person="จำ" onclick="toggleWorker(this)">จำ</button>
+            <button type="button" class="worker-toggle" data-person="อ้อม" onclick="toggleWorker(this)">อ้อม</button>
+            <button type="button" class="worker-toggle" data-person="อิ่ม" onclick="toggleWorker(this)">อิ่ม</button>
+            <button type="button" class="worker-toggle" data-person="มุก" onclick="toggleWorker(this)">มุก</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group full">
+          <label class="form-label">หมายเหตุ / รายละเอียดถ่ายวิดีโอ</label>
+          <textarea class="form-textarea" id="fNote" placeholder="เช่น 09:00 ป้อนถ่ายแฟร้ง / 10:00 ป้อนถ่ายจำ ..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="deleteBtn" onclick="deleteEntry()" style="margin-right:auto;color:var(--accent)">🗑 ลบ</button>
+      <button class="btn btn-ghost" onclick="closeModal()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveEntry()">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">✅ บันทึกสำเร็จ</div>
+
+<script>
+// ===== DATA =====
+const thMonths = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const thDays = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+const thDaysFull = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+
+const PERSON_COLOR = {
+  'กล้วย': 'kluay', 'แฟร้ง': 'farang', 'จำ': 'jam',
+  'อ้อม': 'oom', 'อิ่ม': 'im', 'มุก': 'mook'
+};
+
+let currentYear = 2025, currentMonth = 2; // 0-indexed, March 2025
+let currentView = 'calendar';
+let currentFilter = 'all';
+let activeWorker = null;
+
+// Seed data from the spreadsheet
+let scheduleData = [
+  // Week 1 - Day 1 (Sun 1 Mar)
+  {id:1,  date:'2025-03-01', shift:'morning', channel:'Akane Thailand',workers:['มุก'],note:''},
+  {id:2,  date:'2025-03-01', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['อ้อม'],note:'จำ หน้ากล้อง กล้วย บิ้วหลังกล้อง'},
+  {id:3,  date:'2025-03-01', shift:'night',   channel:'Akane Thailand',workers:['มุก'],note:''},
+  {id:4,  date:'2025-03-01', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['อ้อม'],note:''},
+  // Day 2 (Mon)
+  {id:5,  date:'2025-03-02', shift:'morning', channel:'Akane Thailand',workers:['จำ','กล้วย'],note:''},
+  {id:6,  date:'2025-03-02', shift:'morning', channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['อ้อม'],note:'On Hold 09:00 ป้อน ถ่ายจำ'},
+  {id:7,  date:'2025-03-02', shift:'night',   channel:'Akane Thailand',workers:['อิ่ม'],note:'On Hold 10:00 ป้อน ถ่ายกล้วย'},
+  {id:8,  date:'2025-03-02', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['จาม'],note:''},
+  // Day 3 (Tue)
+  {id:9,  date:'2025-03-03', shift:'morning', channel:'Akane Thailand',workers:['จำ','กล้วย','อาตี๋'],note:'09:00 ป้อนถ่ายจำ / 10:00 ป้อนถ่ายกล้วย'},
+  {id:10, date:'2025-03-03', shift:'morning', channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['แฟร้ง'],note:''},
+  {id:11, date:'2025-03-03', shift:'night',   channel:'Akane Thailand',workers:['จาม'],note:''},
+  {id:12, date:'2025-03-03', shift:'night',   channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่/ช่องแบรนด์ปุ๊ยนุ่น (ของแท้)',workers:['อิ่ม'],note:''},
+  // Day 4 (Wed)
+  {id:13, date:'2025-03-04', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['อ้อม'],note:''},
+  {id:14, date:'2025-03-04', shift:'morning', channel:'Akane Thailand',workers:['จำ'],note:''},
+  {id:15, date:'2025-03-04', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['จาม'],note:''},
+  {id:16, date:'2025-03-04', shift:'night',   channel:'Akane Thailand',workers:['อิ่ม'],note:''},
+  // Day 5 (Thu)
+  {id:17, date:'2025-03-05', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['มุก','อ้อม'],note:'09:00 ป้อนถ่ายมุก / 10:00 ป้อนถ่ายอ้อม'},
+  {id:18, date:'2025-03-05', shift:'morning', channel:'Akane Thailand',workers:['กล้วย'],note:''},
+  {id:19, date:'2025-03-05', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['จาม'],note:''},
+  {id:20, date:'2025-03-05', shift:'night',   channel:'Akane Thailand',workers:['มุก'],note:''},
+  // Day 6 (Fri)
+  {id:21, date:'2025-03-06', shift:'morning', channel:'Akane Thailand',workers:['กล้วย','จำ','อาตี๋'],note:''},
+  {id:22, date:'2025-03-06', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['อ้อม'],note:''},
+  {id:23, date:'2025-03-06', shift:'night',   channel:'Akane Thailand',workers:['มุก'],note:''},
+  {id:24, date:'2025-03-06', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['อิ่ม'],note:''},
+  // Day 7 (Sat)
+  {id:25, date:'2025-03-07', shift:'morning', channel:'Akane Thailand',workers:['กล้วย'],note:''},
+  {id:26, date:'2025-03-07', shift:'morning', channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['แฟร้ง'],note:''},
+  {id:27, date:'2025-03-07', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['อ้อม'],note:'16:00 อ้อม หน้ากล้อง อิ่ม บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  // Day 8 (Sun)
+  {id:28, date:'2025-03-08', shift:'morning', channel:'Akane Thailand',workers:['กล้วย','แฟร้ง'],note:'แฟร้ง หน้ากล้อง กล้วยบิ้วหลังกล้อง สลับกันถ่าย'},
+  {id:29, date:'2025-03-08', shift:'morning', channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['จำ'],note:''},
+  {id:30, date:'2025-03-08', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['มุก','จาม'],note:'16:00 มุก หน้ากล้อง จาม บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  // Days 14-31 (summary entries)
+  {id:40, date:'2025-03-14', shift:'morning', channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['กล้วย'],note:''},
+  {id:41, date:'2025-03-14', shift:'morning', channel:'Akane Thailand',workers:['จำ'],note:''},
+  {id:42, date:'2025-03-14', shift:'night',   channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['อ้อม'],note:''},
+  {id:43, date:'2025-03-15', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['กล้วย','แฟร้ง'],note:''},
+  {id:44, date:'2025-03-15', shift:'night',   channel:'Akane Thailand',workers:['อ้อม'],note:''},
+  {id:45, date:'2025-03-21', shift:'morning', channel:'Akane Thailand',workers:['จำ','กล้วย'],note:'จำ หน้ากล้อง กล้วยบิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  {id:46, date:'2025-03-21', shift:'night',   channel:'Akane Thailand',workers:['มุก'],note:''},
+  {id:47, date:'2025-03-22', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['แฟร้ง','จำ'],note:''},
+  {id:48, date:'2025-03-22', shift:'night',   channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่ / Puiinun thailand',workers:['จาม'],note:''},
+  {id:49, date:'2025-03-28', shift:'morning', channel:'Akane Thailand',workers:['อ้อม'],note:''},
+  {id:50, date:'2025-03-28', shift:'night',   channel:'Akane Thailand',workers:['กล้วย','อิ่ม'],note:'16:00 อ้อม หน้ากล้อง อิ่ม บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  {id:51, date:'2025-03-29', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['แฟร้ง','จำ'],note:'แฟร้ง หน้ากล้อง จำ บิ้วหลังกล้อง สลับกันถ่าย คนละ 30 นาที'},
+  {id:52, date:'2025-03-29', shift:'night',   channel:'Akane Thailand',workers:['อิ่ม'],note:''},
+  {id:53, date:'2025-03-30', shift:'morning', channel:'Akane Thailand / บ้านอากาเนะ',workers:['จำ','กล้วย'],note:'09:00 ป้อนถ่ายกล้วย / 10:00 ป้อนถ่ายจำ'},
+  {id:54, date:'2025-03-30', shift:'night',   channel:'แบรนด์ปุ๊ยนุ่น ช่องใหม่/ช่องแบรนด์ปุ๊ยนุ่น (ของแท้)',workers:['จาม'],note:''},
+  {id:55, date:'2025-03-31', shift:'morning', channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['กล้วย','มุก'],note:'14:00 ป้อนถ่ายกล้วย / 15:00 ป้อนถ่ายมุก'},
+  {id:56, date:'2025-03-31', shift:'night',   channel:'โฟซีเอส โฟกัสคัมแบค / Puiinun thailand',workers:['จาม'],note:''},
+];
+let nextId = 100;
+
+// ===== HELPERS =====
+function getMonthData() {
+  const key = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}`;
+  return scheduleData.filter(d => d.date.startsWith(key));
+}
+
+function getForDate(dateStr) {
+  return scheduleData.filter(d => d.date === dateStr);
+}
+
+function formatDate(y, m, d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+function thYear(y) { return y + 543; }
+
+// ===== RENDER =====
+function render() {
+  updateMonthName();
+  updateStats();
+  updateSidebar();
+  if (currentView === 'calendar') renderCalendar();
+  else renderList();
+}
+
+function updateMonthName() {
+  document.getElementById('monthName').textContent = `${thMonths[currentMonth]} ${thYear(currentYear)}`;
+}
+
+function updateStats() {
+  const data = getMonthData().filter(applyFilter);
+  const days = new Set(data.map(d => d.date)).size;
+  const morning = data.filter(d => d.shift === 'morning').length;
+  const night = data.filter(d => d.shift === 'night').length;
+  document.getElementById('statTotal').textContent = data.length;
+  document.getElementById('statDays').textContent = days;
+  document.getElementById('statMorning').textContent = morning;
+  document.getElementById('statNight').textContent = night;
+}
+
+function updateSidebar() {
+  const data = getMonthData();
+  // Team
+  const workerCount = {};
+  data.forEach(e => e.workers.forEach(w => { workerCount[w] = (workerCount[w]||0)+1; }));
+  const team = ['กล้วย','แฟร้ง','จำ','อ้อม','อิ่ม','มุก'];
+  const tl = document.getElementById('teamList');
+  tl.innerHTML = team.map(w => `
+    <div class="team-member ${activeWorker===w?'active':''}" onclick="filterWorker('${w}')">
+      <div class="member-dot" style="background:var(--${PERSON_COLOR[w]||'accent'})"></div>
+      <div class="member-name">${w}</div>
+      <div class="member-badge">${workerCount[w]||0}</div>
+    </div>`).join('');
+
+  // Channels
+  const channels = [...new Set(data.map(d => d.channel))];
+  const cl = document.getElementById('channelList');
+  cl.innerHTML = channels.map(c => `
+    <div class="channel-item" title="${c}">${c.length > 28 ? c.slice(0,25)+'…' : c}</div>`).join('');
+}
+
+function applyFilter(entry) {
+  if (currentFilter === 'morning') return entry.shift === 'morning';
+  if (currentFilter === 'night') return entry.shift === 'night';
+  if (activeWorker) return entry.workers.includes(activeWorker);
+  return true;
+}
+
+// ===== CALENDAR VIEW =====
+function renderCalendar() {
+  const grid = document.getElementById('calGrid');
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+  const today = new Date();
+  const todayStr = formatDate(today.getFullYear(), today.getMonth(), today.getDate());
+
+  let html = `<div class="cal-header">
+    <div class="cal-header-cell"></div>
+    <div class="cal-header-cell"></div>
+    ${thDays.map(d=>`<div class="cal-header-cell">${d}</div>`).join('')}
+  </div>`;
+
+  // Build weeks
+  let day = 1;
+  let weeks = [];
+  let week = Array(firstDay).fill(null);
+  while (day <= daysInMonth) {
+    week.push(day);
+    if (week.length === 7) { weeks.push(week); week = []; }
+    day++;
+  }
+  if (week.length) { while(week.length<7) week.push(null); weeks.push(week); }
+
+  weeks.forEach(wk => {
+    // Morning row
+    html += `<div class="week-row">
+      <div class="shift-label" style="color:var(--col-morning);font-size:10px">☀️ เช้า</div>
+      <div class="shift-indicator"><div class="shift-dot" style="background:var(--col-morning)"></div></div>
+      ${wk.map(d => {
+        if (!d) return `<div class="day-cell empty"></div>`;
+        const dateStr = formatDate(currentYear, currentMonth, d);
+        const entries = getForDate(dateStr).filter(e => e.shift === 'morning').filter(applyFilter);
+        const isToday = dateStr === todayStr;
+        return `<div class="day-cell morning ${isToday?'today':''}" onclick="openDayModal('${dateStr}','morning')">
+          ${isToday ? '<div class="day-badge-today"></div>' : ''}
+          <div class="cell-date">${d}</div>
+          ${renderCellWorkers(entries)}
+          ${entries[0] ? `<div class="cell-channel">${entries[0].channel.split('/')[0].trim()}</div>` : ''}
+          ${entries[0]?.note ? `<div class="cell-note">📝</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
+
+    // Night row
+    html += `<div class="week-row" style="margin-bottom:12px">
+      <div class="shift-label" style="color:var(--col-night);font-size:10px">🌙 ดึก</div>
+      <div class="shift-indicator"><div class="shift-dot" style="background:var(--col-night)"></div></div>
+      ${wk.map(d => {
+        if (!d) return `<div class="day-cell empty"></div>`;
+        const dateStr = formatDate(currentYear, currentMonth, d);
+        const entries = getForDate(dateStr).filter(e => e.shift === 'night').filter(applyFilter);
+        const isToday = dateStr === todayStr;
+        return `<div class="day-cell night ${isToday?'today':''}" onclick="openDayModal('${dateStr}','night')">
+          ${isToday ? '<div class="day-badge-today"></div>' : ''}
+          <div class="cell-date">${d}</div>
+          ${renderCellWorkers(entries)}
+          ${entries[0] ? `<div class="cell-channel">${entries[0].channel.split('/')[0].trim()}</div>` : ''}
+          ${entries[0]?.note ? `<div class="cell-note">📝</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  });
+
+  grid.innerHTML = html;
+}
+
+function renderCellWorkers(entries) {
+  const workers = [...new Set(entries.flatMap(e => e.workers))].slice(0,3);
+  if (!workers.length) return '';
+  return `<div class="cell-workers">${workers.map(w =>
+    `<span class="worker-chip chip-${PERSON_COLOR[w]||'oom'}">${w}</span>`
+  ).join('')}</div>`;
+}
+
+// ===== LIST VIEW =====
+function renderList() {
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+  const listView = document.getElementById('listView');
+  let html = '';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = formatDate(currentYear, currentMonth, d);
+    const allEntries = getForDate(dateStr).filter(applyFilter);
+    if (!allEntries.length && currentFilter !== 'all') continue;
+
+    const dow = new Date(currentYear, currentMonth, d).getDay();
+    const mEntries = allEntries.filter(e => e.shift==='morning');
+    const nEntries = allEntries.filter(e => e.shift==='night');
+
+    html += `<div class="list-day">
+      <div class="list-day-header">
+        <div class="list-day-num" style="color:${dow===0?'var(--accent)':dow===6?'var(--accent3)':'var(--text)'}">${d}</div>
+        <div class="list-day-info">
+          <div class="list-day-name">${thDaysFull[dow]}</div>
+          <div class="list-day-date">${d} ${thMonths[currentMonth]} ${thYear(currentYear)}</div>
+        </div>
+        <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="openAddModal('${dateStr}')">+ เพิ่ม</button>
+      </div>`;
+
+    if (currentFilter !== 'night') {
+      html += `<div class="shift-row morning-row">
+        <div class="shift-time morning">
+          <div class="shift-time-label">☀️ กะเช้า</div>
+          <div class="shift-time-range">08.00 – 16.00</div>
+        </div>
+        <div class="shift-workers">${mEntries.length ? mEntries.flatMap(e=>e.workers).filter((v,i,a)=>a.indexOf(v)===i).map(w=>`<span class="worker-chip chip-${PERSON_COLOR[w]||'oom'}">${w}</span>`).join('') : '<span class="no-data">ไม่มีข้อมูล</span>'}</div>
+        <div class="shift-channel">${mEntries.map(e=>`${e.channel}`).join('<br>') || '<span style="color:var(--text-muted)">—</span>'}</div>
+        <div class="shift-notes">${mEntries.filter(e=>e.note).map(e=>e.note).join('<br>') || ''}</div>
+      </div>`;
+    }
+
+    if (currentFilter !== 'morning') {
+      html += `<div class="shift-row night-row">
+        <div class="shift-time night">
+          <div class="shift-time-label">🌙 กะดึก</div>
+          <div class="shift-time-range">17.30 – 01.30</div>
+        </div>
+        <div class="shift-workers">${nEntries.length ? nEntries.flatMap(e=>e.workers).filter((v,i,a)=>a.indexOf(v)===i).map(w=>`<span class="worker-chip chip-${PERSON_COLOR[w]||'oom'}">${w}</span>`).join('') : '<span class="no-data">ไม่มีข้อมูล</span>'}</div>
+        <div class="shift-channel">${nEntries.map(e=>`${e.channel}`).join('<br>') || '<span style="color:var(--text-muted)">—</span>'}</div>
+        <div class="shift-notes">${nEntries.filter(e=>e.note).map(e=>e.note).join('<br>') || ''}</div>
+      </div>`;
+    }
+
+    html += `</div>`;
+  }
+
+  listView.innerHTML = html || '<div style="text-align:center;color:var(--text-muted);padding:40px">ไม่มีข้อมูลในเดือนนี้</div>';
+}
+
+// ===== CONTROLS =====
+function changeMonth(delta) {
+  currentMonth += delta;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  render();
+}
+
+function setView(view, el) {
+  currentView = view;
+  document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('calGrid').classList.toggle('active', view==='calendar');
+  document.getElementById('listView').classList.toggle('active', view==='list');
+  render();
+}
+
+function toggleFilter(filter, el) {
+  currentFilter = filter;
+  activeWorker = null;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+function filterWorker(name) {
+  if (activeWorker === name) { activeWorker = null; currentFilter = 'all'; }
+  else { activeWorker = name; currentFilter = 'worker'; }
+  render();
+}
+
+// ===== MODAL =====
+let editingDate = null;
+let editingShift = null;
+
+function openAddModal(date='', shift='morning') {
+  document.getElementById('editId').value = '';
+  document.getElementById('modalTitle').textContent = 'เพิ่มตารางไลฟ์';
+  document.getElementById('deleteBtn').style.display = 'none';
+  document.getElementById('fDate').value = date || formatDate(currentYear, currentMonth, 1);
+  document.getElementById('fShift').value = shift;
+  document.getElementById('fChannel').value = 'Akane Thailand';
+  document.getElementById('fNote').value = '';
+  document.querySelectorAll('.worker-toggle').forEach(b => b.classList.remove('selected'));
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function openDayModal(dateStr, shift) {
+  const entries = getForDate(dateStr).filter(e => e.shift === shift);
+  if (entries.length > 0) {
+    // Edit first entry
+    const e = entries[0];
+    document.getElementById('editId').value = e.id;
+    document.getElementById('modalTitle').textContent = 'แก้ไขตารางไลฟ์';
+    document.getElementById('deleteBtn').style.display = 'block';
+    document.getElementById('fDate').value = dateStr;
+    document.getElementById('fShift').value = e.shift;
+    document.getElementById('fChannel').value = e.channel;
+    document.getElementById('fNote').value = e.note || '';
+    document.querySelectorAll('.worker-toggle').forEach(b => {
+      b.classList.toggle('selected', e.workers.includes(b.dataset.person));
+    });
+    document.getElementById('modalOverlay').classList.add('open');
+  } else {
+    openAddModal(dateStr, shift);
+  }
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function closeModalOnBg(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+function toggleWorker(btn) {
+  btn.classList.toggle('selected');
+}
+
+function saveEntry() {
+  const id = document.getElementById('editId').value;
+  const date = document.getElementById('fDate').value;
+  const shift = document.getElementById('fShift').value;
+  const channel = document.getElementById('fChannel').value;
+  const note = document.getElementById('fNote').value;
+  const workers = [...document.querySelectorAll('.worker-toggle.selected')].map(b => b.dataset.person);
+
+  if (!date) { alert('กรุณาเลือกวันที่'); return; }
+
+  const entry = { date, shift, channel, workers, note };
+
+  if (id) {
+    const idx = scheduleData.findIndex(d => d.id == id);
+    if (idx >= 0) scheduleData[idx] = { ...entry, id: parseInt(id) };
+  } else {
+    scheduleData.push({ ...entry, id: nextId++ });
+  }
+
+  closeModal();
+  render();
+  showToast('💾 บันทึกสำเร็จ');
+}
+
+function deleteEntry() {
+  const id = document.getElementById('editId').value;
+  if (id && confirm('ต้องการลบรายการนี้?')) {
+    scheduleData = scheduleData.filter(d => d.id != id);
+    closeModal();
+    render();
+    showToast('🗑 ลบแล้ว');
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function exportData() {
+  const data = getMonthData();
+  const csv = ['วันที่,กะ,ช่องไลฟ์,ผู้ปฏิบัติงาน,หมายเหตุ',
+    ...data.map(e => `${e.date},${e.shift==='morning'?'กะเช้า':'กะดึก'},"${e.channel}","${e.workers.join('/')}","${e.note}"`)
+  ].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = `live-schedule-${thMonths[currentMonth]}-${thYear(currentYear)}.csv`;
+  a.click();
+  showToast('📥 Export สำเร็จ');
+}
+
+// ===== INIT =====
+render();
+</script>
+</body>
+</html>
