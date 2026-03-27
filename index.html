@@ -331,6 +331,26 @@
   /* type badges */
   .type-solo { background: rgba(72,202,228,.15); color: var(--col-morning); border: 1px solid var(--col-morning); padding: 2px 7px; border-radius: 10px; font-size: 9px; font-weight: 800; }
   .type-duo  { background: rgba(255,107,157,.15); color: var(--accent); border: 1px solid var(--accent); padding: 2px 7px; border-radius: 10px; font-size: 9px; font-weight: 800; }
+  /* channel chips */
+  .ch-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    background: rgba(199,125,255,.15); color: var(--accent2);
+    border: 1px solid var(--accent2); cursor: default;
+  }
+  .ch-chip .ch-rm {
+    cursor: pointer; opacity: .6; font-size: 13px; line-height: 1;
+  }
+  .ch-chip .ch-rm:hover { opacity: 1; color: var(--accent); }
+  .ch-option {
+    padding: 9px 14px; cursor: pointer; font-size: 13px;
+    border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px;
+    transition: background .1s;
+  }
+  .ch-option:hover { background: var(--border); }
+  .ch-option.selected { background: rgba(199,125,255,.1); color: var(--accent2); }
+  .ch-placeholder { color: var(--text-muted); font-size: 12px; padding: 2px 0; }
+
   /* team row in list view */
   .team-row { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 5px; }
   .team-row:last-child { margin-bottom: 0; }
@@ -365,7 +385,8 @@
   </div>
   <div class="header-right">
     <button class="btn btn-ghost" onclick="exportData()">📥 Export</button>
-    <button class="btn btn-primary" onclick="openAddModal()">+ เพิ่มตาราง</button>
+    <button class="btn btn-ghost" id="adminBtn" onclick="toggleAdminMode()" style="border-color:var(--border)">🔒 Admin</button>
+    <button class="btn btn-primary" id="addBtn" onclick="openAddModal()">+ เพิ่มตาราง</button>
   </div>
 </div>
 
@@ -416,7 +437,7 @@
     <div class="sidebar-section">
       <div style="display:flex;align-items:center;margin-bottom:10px">
         <div class="sidebar-label" style="margin-bottom:0">ช่องไลฟ์</div>
-        <button onclick="openChannelManager()" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;font-weight:600">✏️ จัดการ</button>
+        <button onclick="openChannelManager()" id="chMgrBtn" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;font-weight:600">✏️ จัดการ</button>
       </div>
       <div class="channel-list" id="channelList"></div>
     </div>
@@ -501,25 +522,9 @@
       </div>
       <div class="form-row">
         <div class="form-group full">
-          <label class="form-label">ช่องไลฟ์</label>
-          <div style="position:relative" id="chDropdownWrap">
-            <input type="text" class="form-input" id="fChannelInput" 
-              placeholder="พิมพ์หรือเลือกช่องไลฟ์..."
-              autocomplete="off"
-              oninput="filterChannelDropdown(this.value)"
-              onfocus="showChannelDropdown()"
-              onblur="hideChannelDropdown()"
-              onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value;selectChannelOption(v||channels[0])}"
-              style="width:100%;padding-right:32px">
-            <input type="hidden" id="fChannel">
-            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;font-size:12px">▾</span>
-            <div id="chDropdownList" style="
-              display:none;position:absolute;top:100%;left:0;right:0;z-index:999;
-              background:var(--card);border:1px solid var(--accent);border-top:none;
-              border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;
-              box-shadow:0 8px 20px rgba(0,0,0,.4)">
-            </div>
-          </div>
+          <label class="form-label">ช่องไลฟ์ <span style="color:var(--text-muted);font-weight:400;font-size:10px">(เลือกได้มากกว่า 1)</span></label>
+          <div id="chPickerWrap" style="display:flex;flex-wrap:wrap;gap:7px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;min-height:44px;cursor:pointer;transition:border .15s" onclick="toggleChPicker()"></div>
+          <div id="chPickerDropdown" style="display:none;margin-top:4px;background:var(--surface);border:1px solid var(--accent);border-radius:8px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.4);max-height:220px;overflow-y:auto"></div>
         </div>
       </div>
       <div class="form-row">
@@ -598,72 +603,81 @@ let channels = [
   'Akane Thailand / เพื่อนสาวป้ายยา'
 ];
 
-function refreshChannelSelect(selectVal) {
-  // For hidden input - just update value if provided
-  const inp = document.getElementById('fChannelInput');
-  const hid = document.getElementById('fChannel');
-  if (selectVal !== undefined) {
-    if (inp) inp.value = selectVal;
-    if (hid) hid.value = selectVal;
-  }
-}
+// ===== CHANNEL CHIP PICKER =====
+let selectedChannels = []; // ช่องที่เลือกใน modal ปัจจุบัน
 
-function showChannelDropdown() {
-  filterChannelDropdown(document.getElementById('fChannelInput')?.value || '');
-  document.getElementById('chDropdownList').style.display = 'block';
-}
-
-function hideChannelDropdown() {
-  setTimeout(() => {
-    const d = document.getElementById('chDropdownList');
-    if (d) d.style.display = 'none';
-    // If input text doesn't match any channel, keep as custom value
-    const inp = document.getElementById('fChannelInput');
-    const hid = document.getElementById('fChannel');
-    if (inp && hid) hid.value = inp.value;
-  }, 200);
-}
-
-function filterChannelDropdown(query) {
-  const list = document.getElementById('chDropdownList');
-  if (!list) return;
-  const q = query.toLowerCase();
-  const filtered = query ? channels.filter(c => c.toLowerCase().includes(q)) : channels;
-  
-  if (filtered.length === 0) {
-    list.innerHTML = `<div style="padding:10px 14px;color:var(--text-muted);font-size:12px">
-      ไม่พบช่อง — กด Enter เพื่อใช้ "<strong>${query}</strong>"
-    </div>`;
+function renderChPicker() {
+  const wrap = document.getElementById('chPickerWrap');
+  if (!wrap) return;
+  if (selectedChannels.length === 0) {
+    wrap.innerHTML = '<span class="ch-placeholder">📺 แตะเพื่อเลือกช่องไลฟ์...</span>';
   } else {
-    list.innerHTML = filtered.map(c => `
-      <div onclick="selectChannelOption('${c.replace(/'/g,"\'")}')" 
-        style="padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);transition:background .1s"
-        onmouseover="this.style.background='var(--border)'"
-        onmouseout="this.style.background='transparent'">
+    wrap.innerHTML = selectedChannels.map((c,i) => `
+      <span class="ch-chip">
         📺 ${c}
-      </div>`).join('');
+        <span class="ch-rm" onclick="removeChip(${i},event)">✕</span>
+      </span>`).join('');
   }
-  list.style.display = 'block';
+  // อัปเดต dropdown options (checked state)
+  renderChDropdown();
 }
 
-function selectChannelOption(ch) {
-  const inp = document.getElementById('fChannelInput');
-  const hid = document.getElementById('fChannel');
-  const list = document.getElementById('chDropdownList');
-  if (inp) inp.value = ch;
-  if (hid) hid.value = ch;
-  if (list) list.style.display = 'none';
+function renderChDropdown() {
+  const dd = document.getElementById('chPickerDropdown');
+  if (!dd) return;
+  dd.innerHTML = channels.map(c => {
+    const sel = selectedChannels.includes(c);
+    return `<div class="ch-option ${sel?'selected':''}" onclick="toggleChOption('${c.replace(/'/g,"\'")}')" >
+      <span style="font-size:14px">${sel ? '✅' : '📺'}</span>
+      <span>${c}</span>
+    </div>`;
+  }).join('') + `<div style="padding:8px 14px;border-top:1px solid var(--border)">
+    <button onclick="closeChPicker()" style="width:100%;background:var(--accent2);color:#fff;border:none;border-radius:6px;padding:7px;font-family:'Sarabun',sans-serif;font-weight:700;font-size:13px;cursor:pointer">✓ เสร็จแล้ว</button>
+  </div>`;
 }
 
-// Close dropdown when clicking outside
+function toggleChPicker() {
+  const dd = document.getElementById('chPickerDropdown');
+  if (!dd) return;
+  const isOpen = dd.style.display !== 'none';
+  if (isOpen) { dd.style.display = 'none'; }
+  else { renderChDropdown(); dd.style.display = 'block'; }
+}
+
+function closeChPicker() {
+  const dd = document.getElementById('chPickerDropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+function toggleChOption(ch) {
+  const idx = selectedChannels.indexOf(ch);
+  if (idx >= 0) selectedChannels.splice(idx, 1);
+  else selectedChannels.push(ch);
+  renderChPicker();
+}
+
+function removeChip(i, e) {
+  e.stopPropagation();
+  selectedChannels.splice(i, 1);
+  renderChPicker();
+}
+
+function refreshChannelSelect(selectVal) {
+  // ถ้าส่ง string มา ให้ set เป็น array ใบเดียว
+  if (selectVal !== undefined && selectVal !== '') {
+    selectedChannels = Array.isArray(selectVal) ? selectVal : [selectVal];
+  } else {
+    selectedChannels = [];
+  }
+  renderChPicker();
+}
+
+// ปิด dropdown เมื่อคลิกนอก
 document.addEventListener('click', function(e) {
-  const wrap = document.getElementById('chDropdownWrap');
-  if (wrap && !wrap.contains(e.target)) {
-    const list = document.getElementById('chDropdownList');
-    if (list) list.style.display = 'none';
-    const inp = document.getElementById('fChannelInput');
-    const hid = document.getElementById('fChannel');
-    if (inp && hid) hid.value = inp.value;
+  const wrap = document.getElementById('chPickerWrap');
+  const dd = document.getElementById('chPickerDropdown');
+  if (wrap && dd && !wrap.contains(e.target) && !dd.contains(e.target)) {
+    dd.style.display = 'none';
   }
 });
 
@@ -678,6 +692,7 @@ function closeChannelManager() {
   document.getElementById('chModalOverlay').style.display = 'none';
   refreshChannelSelect();
   updateSidebar();
+  saveToStorage();
   showToast('💾 บันทึกช่องไลฟ์แล้ว');
 }
 
@@ -970,9 +985,9 @@ function updateSidebar() {
     </div>`).join('');
 
   // Channels
-  const channels = [...new Set(data.map(d => d.channel))];
+  const allChannels = [...new Set(data.flatMap(d => d.channels || [d.channel]))];
   const cl = document.getElementById('channelList');
-  cl.innerHTML = channels.map(c => `
+  cl.innerHTML = allChannels.map(c => `
     <div class="channel-item" title="${c}">${c.length > 28 ? c.slice(0,25)+'…' : c}</div>`).join('');
 }
 
@@ -1018,11 +1033,11 @@ function renderCalendar() {
         const dateStr = formatDate(currentYear, currentMonth, d);
         const entries = getForDate(dateStr).filter(e => e.shift === 'morning').filter(applyFilter);
         const isToday = dateStr === todayStr;
-        return `<div class="day-cell morning ${isToday?'today':''}" onclick="openDayModal('${dateStr}','morning')">
+        return `<div class="day-cell morning ${isToday?'today':''}" onclick="openDayModalGuard('${dateStr}','morning')">
           ${isToday ? '<div class="day-badge-today"></div>' : ''}
           <div class="cell-date">${d}</div>
           ${renderCellWorkers(entries)}
-          ${entries[0] ? `<div class="cell-channel">${entries[0].channel.split('/')[0].trim()}</div>` : ''}
+          ${entries[0] ? `<div class="cell-channel">${(entries[0].channels||[entries[0].channel]).map(c=>c.split('/')[0].trim()).join(', ')}</div>` : ''}
           <div style="display:flex;gap:3px;margin-top:3px;flex-wrap:wrap">
             ${entries.map(e => `
               <span style="display:inline-flex;align-items:center;gap:2px">
@@ -1044,11 +1059,11 @@ function renderCalendar() {
         const dateStr = formatDate(currentYear, currentMonth, d);
         const entries = getForDate(dateStr).filter(e => e.shift === 'night').filter(applyFilter);
         const isToday = dateStr === todayStr;
-        return `<div class="day-cell night ${isToday?'today':''}" onclick="openDayModal('${dateStr}','night')">
+        return `<div class="day-cell night ${isToday?'today':''}" onclick="openDayModalGuard('${dateStr}','night')">
           ${isToday ? '<div class="day-badge-today"></div>' : ''}
           <div class="cell-date">${d}</div>
           ${renderCellWorkers(entries)}
-          ${entries[0] ? `<div class="cell-channel">${entries[0].channel.split('/')[0].trim()}</div>` : ''}
+          ${entries[0] ? `<div class="cell-channel">${(entries[0].channels||[entries[0].channel]).map(c=>c.split('/')[0].trim()).join(', ')}</div>` : ''}
           ${entries[0]?.note ? `<div class="cell-note">📝</div>` : ''}
         </div>`;
       }).join('')}
@@ -1104,6 +1119,7 @@ function renderList() {
                 <span class="team-tag ${e.teamNum==='2'?'team-tag-2':'team-tag-1'}">ทีม ${e.teamNum||'1'}</span>
                 <span class="${e.liveType==='duo'?'type-duo':'type-solo'}">${e.liveType==='duo'?'👫 คู่':'🎤 เดี่ยว'}</span>
               </div>
+              <div style="font-size:11px;color:var(--accent2);margin-bottom:4px">${(e.channels||[e.channel]).map(c=>`<span style="background:rgba(199,125,255,.12);border:1px solid var(--accent2);border-radius:10px;padding:1px 7px;margin-right:3px;display:inline-block">📺 ${c.split('/')[0].trim()}</span>`).join('')}</div>
               <div style="display:flex;flex-wrap:wrap;gap:4px">${e.workers.map(w=>`<span class="worker-chip chip-${PERSON_COLOR[w]||'oom'}">${w}</span>`).join('')}</div>
             </div>`).join('')
           : '<span class="no-data">ไม่มีข้อมูล</span>'}
@@ -1126,6 +1142,7 @@ function renderList() {
                 <span class="team-tag ${e.teamNum==='2'?'team-tag-2':'team-tag-1'}">ทีม ${e.teamNum||'1'}</span>
                 <span class="${e.liveType==='duo'?'type-duo':'type-solo'}">${e.liveType==='duo'?'👫 คู่':'🎤 เดี่ยว'}</span>
               </div>
+              <div style="font-size:11px;color:var(--accent2);margin-bottom:4px">${(e.channels||[e.channel]).map(c=>`<span style="background:rgba(199,125,255,.12);border:1px solid var(--accent2);border-radius:10px;padding:1px 7px;margin-right:3px;display:inline-block">📺 ${c.split('/')[0].trim()}</span>`).join('')}</div>
               <div style="display:flex;flex-wrap:wrap;gap:4px">${e.workers.map(w=>`<span class="worker-chip chip-${PERSON_COLOR[w]||'oom'}">${w}</span>`).join('')}</div>
             </div>`).join('')
           : '<span class="no-data">ไม่มีข้อมูล</span>'}
@@ -1219,6 +1236,8 @@ function openAddModal(date='', shift='morning') {
   document.querySelectorAll('.worker-toggle').forEach(b => b.classList.remove('selected'));
   document.getElementById('fTypeSolo').checked = true;
   document.getElementById('fTeam1').checked = true;
+  selectedChannels = [];
+  renderChPicker();
   updateTypeLabel();
   updateTeamLabel();
   document.getElementById('modalOverlay').classList.add('open');
@@ -1234,7 +1253,7 @@ function openDayModal(dateStr, shift) {
     document.getElementById('deleteBtn').style.display = 'block';
     document.getElementById('fDate').value = dateStr;
     document.getElementById('fShift').value = e.shift;
-    refreshChannelSelect(e.channel);
+    refreshChannelSelect(e.channels || (e.channel ? [e.channel] : []));
     document.getElementById('fNote').value = e.note || '';
     document.querySelectorAll('.worker-toggle').forEach(b => {
       b.classList.toggle('selected', e.workers.includes(b.dataset.person));
@@ -1277,7 +1296,9 @@ function saveEntry() {
 
   const liveType = document.querySelector('input[name="fType"]:checked')?.value || 'solo';
   const teamNum = document.querySelector('input[name="fTeam"]:checked')?.value || '1';
-  const entry = { date, shift, channel, workers, note, liveType, teamNum };
+  // channel เป็น array ของช่องที่เลือก
+  const channelList = selectedChannels.length > 0 ? selectedChannels : [channel || channels[0] || ''];
+  const entry = { date, shift, channel: channelList[0], channels: channelList, workers, note, liveType, teamNum };
 
   if (id) {
     const idx = scheduleData.findIndex(d => d.id == id);
@@ -1288,6 +1309,7 @@ function saveEntry() {
 
   closeModal();
   render();
+  saveToStorage();
   showToast('💾 บันทึกสำเร็จ');
 }
 
@@ -1297,6 +1319,7 @@ function deleteEntry() {
     scheduleData = scheduleData.filter(d => d.id != id);
     closeModal();
     render();
+    saveToStorage();
     showToast('🗑 ลบแล้ว');
   }
 }
@@ -1320,8 +1343,129 @@ function exportData() {
   showToast('📥 Export สำเร็จ');
 }
 
+function clearAllData() {
+  if (!confirm('ล้างข้อมูลทั้งหมด? (ข้อมูลที่เพิ่มเองจะหายหมด)')) return;
+  localStorage.removeItem('liveScheduleData');
+  localStorage.removeItem('liveScheduleChannels');
+  location.reload();
+}
+
+// ===== LOCALSTORAGE =====
+const STORAGE_KEY = 'liveScheduleData';
+const CHANNEL_KEY = 'liveScheduleChannels';
+
+function saveToStorage() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(scheduleData));
+    localStorage.setItem(CHANNEL_KEY, JSON.stringify(channels));
+  } catch(e) { console.error('save failed', e); }
+}
+
+function loadFromStorage() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && parsed.length > 0) {
+        scheduleData = parsed;
+        // อัปเดต nextId ให้ไม่ซ้ำ
+        nextId = Math.max(...scheduleData.map(d => d.id || 0)) + 1;
+      }
+    }
+    const savedCh = localStorage.getItem(CHANNEL_KEY);
+    if (savedCh) {
+      const parsedCh = JSON.parse(savedCh);
+      if (parsedCh && parsedCh.length > 0) channels = parsedCh;
+    }
+  } catch(e) { console.error('load failed', e); }
+}
+
+// ===== ADMIN MODE =====
+const ADMIN_PASS = 'akane2569';
+let isAdmin = false;
+
+function toggleAdminMode() {
+  if (isAdmin) {
+    // logout
+    isAdmin = false;
+    applyMode();
+  } else {
+    // แสดง modal ใส่ password
+    document.getElementById('adminModalOverlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('adminPassInput').focus(), 100);
+  }
+}
+
+function submitAdminPass() {
+  const val = document.getElementById('adminPassInput').value;
+  if (val === ADMIN_PASS) {
+    isAdmin = true;
+    document.getElementById('adminModalOverlay').style.display = 'none';
+    document.getElementById('adminPassInput').value = '';
+    document.getElementById('adminPassError').style.display = 'none';
+    applyMode();
+    showToast('🔓 เข้าสู่โหมด Admin แล้ว');
+  } else {
+    document.getElementById('adminPassError').style.display = 'block';
+    document.getElementById('adminPassInput').select();
+  }
+}
+
+function closeAdminModal() {
+  document.getElementById('adminModalOverlay').style.display = 'none';
+  document.getElementById('adminPassInput').value = '';
+  document.getElementById('adminPassError').style.display = 'none';
+}
+
+function applyMode() {
+  const addBtn    = document.getElementById('addBtn');
+  const adminBtn  = document.getElementById('adminBtn');
+  const delBtn    = document.getElementById('deleteBtn');
+  const saveBtn   = document.querySelector('.modal-footer .btn-primary');
+
+  const chMgrBtn = document.getElementById('chMgrBtn');
+  if (isAdmin) {
+    if (addBtn)    { addBtn.style.display = ''; }
+    if (chMgrBtn)  { chMgrBtn.style.display = ''; }
+    if (adminBtn)  { adminBtn.textContent = '🔓 Admin'; adminBtn.style.borderColor = 'var(--green)'; adminBtn.style.color = 'var(--green)'; }
+  } else {
+    if (addBtn)    { addBtn.style.display = 'none'; }
+    if (chMgrBtn)  { chMgrBtn.style.display = 'none'; }
+    if (adminBtn)  { adminBtn.textContent = '🔒 Admin'; adminBtn.style.borderColor = 'var(--border)'; adminBtn.style.color = 'var(--text-muted)'; }
+    closeModal();
+  }
+}
+
+// block การ click cell ถ้าไม่ใช่ admin
+function openDayModalGuard(dateStr, shift) {
+  if (!isAdmin) return;
+  openDayModal(dateStr, shift);
+}
+
 // ===== INIT =====
+loadFromStorage();
 render();
+// เริ่มต้นเป็น view mode เสมอ
+applyMode();
 </script>
+<!-- ADMIN PASSWORD MODAL -->
+<div id="adminModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(4px)" onclick="if(event.target===this)closeAdminModal()">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;width:340px;padding:28px;animation:slideUp .22s">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:40px;margin-bottom:8px">🔒</div>
+      <div style="font-family:'Kanit',sans-serif;font-size:18px;font-weight:700">Admin Login</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">ใส่รหัสผ่านเพื่อแก้ไขตาราง</div>
+    </div>
+    <input type="password" id="adminPassInput" class="form-input" placeholder="รหัสผ่าน..."
+      style="width:100%;margin-bottom:8px;text-align:center;font-size:18px;letter-spacing:4px"
+      onkeydown="if(event.key==='Enter')submitAdminPass()">
+    <div id="adminPassError" style="display:none;color:var(--accent);font-size:12px;text-align:center;margin-bottom:10px">❌ รหัสผ่านไม่ถูกต้อง</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" onclick="closeAdminModal()" style="flex:1">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="submitAdminPass()" style="flex:1">🔓 เข้าสู่ระบบ</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
