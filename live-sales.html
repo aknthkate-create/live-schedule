@@ -445,7 +445,7 @@ function updatePreview(){
   const sp=parseFloat(document.getElementById('f-sp')?.value)||0;
   const ot=parseFloat(document.getElementById('f-ot')?.value)||0;
   const total=tt+sp+ot;
-  const sel=PEOPLE.filter(p=>document.getElementById('chk-'+p)?.checked);
+  const sel=getActive().map(s=>s.name).filter(p=>document.getElementById('chk-'+p)?.checked);
   const avg=sel.length>0?total/sel.length:total;
   const pv=document.getElementById('preview');
   if(!pv)return;
@@ -686,8 +686,10 @@ function renderPerson(){
 /* ===== INSIGHT TAB ===== */
 function renderInsight(){
   const el=document.getElementById('tab-insight');
-  const fd=getFiltered();
-  if(fd.length<2){el.innerHTML=`<div class="empty"><div class="empty-icon">🏆</div><div class="empty-text">ต้องมีข้อมูลอย่างน้อย 2 รอบ</div></div>`;return;}
+  // insight ใช้ข้อมูลทั้งหมด (ไม่กรองเดือน) เพื่อให้วิเคราะห์ได้ครบ
+  const fd=data;
+  const fdFiltered=getFiltered(); // ใช้แค่แสดง label ว่ากรองเดือนอะไร
+  if(fd.length<1){el.innerHTML=`<div class="empty"><div class="empty-icon">🏆</div><div class="empty-text">ยังไม่มีข้อมูล กรอกยอดไลฟ์ก่อนนะคะ</div></div>`;return;}
 
   const soloRows=fd.filter(r=>isSolo(r));
   const pairRows=fd.filter(r=>isPair(r));
@@ -746,11 +748,10 @@ function renderInsight(){
   el.innerHTML=`
   <!-- SOLO RANKING -->
   <div class="insight-card">
-    <div class="insight-title">🎤 อันดับไลฟ์เดี่ยว (เฉลี่ย/รอบ)</div>
+    <div class="insight-title">🎤 อันดับไลฟ์เดี่ยว (เฉลี่ย/รอบ) — ข้อมูลทั้งปี</div>
     ${soloStats.length?soloStats.map((p,rank)=>{
       const medal=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':'';
-      const c=AVCOLS[p.i];
-      const bc=BARCOLS[p.i%BARCOLS.length];
+      const c=avColForName(p.name);
       return `<div class="pair-card">
         <div class="pair-names">${medal} <div style="width:30px;height:30px;border-radius:50%;background:${c.bg};color:${c.c};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${p.name.slice(0,2)}</div> ${p.name}</div>
         <div class="pair-stats">
@@ -763,7 +764,7 @@ function renderInsight(){
 
   <!-- PAIR RANKING -->
   <div class="insight-card">
-    <div class="insight-title">👫 คู่ปัง! อันดับไลฟ์คู่ (เฉลี่ย/รอบ)</div>
+    <div class="insight-title">👫 คู่ปัง! อันดับไลฟ์คู่ (เฉลี่ย/รอบ) — ข้อมูลทั้งปี</div>
     ${pairStats.length?pairStats.map((p,rank)=>{
       const medal=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':'';
       const names=p.key.split(' + ');
