@@ -265,12 +265,33 @@ const BAR_PALETTE = ['#D4820A','#1A5FA5','#6B4FBB','#1A7A5E','#C0392B','#9B2365'
 // staff = [{name, status:'active'|'inactive'|'resigned', colorIdx}]
 let staffList = [];
 
-function loadStaff(){
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzv_mFLyF8gn0TBRRY4xDibC0_Ow7E2JZA_DQzih6k3oEmbmRmWwa-ykHGKcKipvJNS/exec';
+let isLoading = false;
+
+async function gasCall(params){
+  const url = GAS_URL + '?' + new URLSearchParams(params).toString();
+  const res = await fetch(url);
+  return res.json();
+}
+
+function showLoading(show){
+  let el = document.getElementById('loading-bar');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'loading-bar';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#D4820A,#F0A830);z-index:9999;transition:opacity .3s';
+    document.body.appendChild(el);
+  }
+  el.style.opacity = show ? '1' : '0';
+}
+
+async function loadStaff(){
   try{
-    const r=localStorage.getItem('live2569_staff');
-    if(r){ staffList=JSON.parse(r); }
-    else {
-      // default staff
+    showLoading(true);
+    const result = await gasCall({action:'getStaff'});
+    if(Array.isArray(result) && result.length > 0){
+      staffList = result;
+    } else {
       staffList=[
         {name:'จ๋า',status:'active',colorIdx:0},
         {name:'กล้วย',status:'active',colorIdx:1},
@@ -280,11 +301,19 @@ function loadStaff(){
         {name:'แฟร้ง',status:'active',colorIdx:5},
         {name:'จาม',status:'active',colorIdx:6},
       ];
-      saveStaff();
+      await saveStaff();
     }
-  }catch(e){staffList=[];}
+  }catch(e){ staffList=[]; }
+  finally{ showLoading(false); }
 }
-function saveStaff(){try{localStorage.setItem('live2569_staff',JSON.stringify(staffList));}catch(e){}}
+
+async function saveStaff(){
+  try{
+    showLoading(true);
+    await gasCall({action:'saveStaff', staff:JSON.stringify(staffList)});
+  }catch(e){}
+  finally{ showLoading(false); }
+}
 
 // helpers
 function getActive(){return staffList.filter(s=>s.status==='active');}
@@ -315,8 +344,18 @@ let curTab = 'input';
 let charts = {};
 
 /* ===== STORAGE ===== */
-function loadData(){try{const r=localStorage.getItem('live2569');data=r?JSON.parse(r):[];}catch(e){data=[];}}
-function saveData(){try{localStorage.setItem('live2569',JSON.stringify(data));}catch(e){}updateHeader();}
+async function loadData(){
+  try{
+    showLoading(true);
+    const result = await gasCall({action:'getData'});
+    data = Array.isArray(result) ? result : [];
+  }catch(e){ data=[]; }
+  finally{ showLoading(false); }
+}
+
+async function saveData(){
+  updateHeader();
+}
 
 /* ===== UTIL ===== */
 function fmt(v){return Math.round(v||0).toLocaleString('th-TH');}
@@ -463,7 +502,7 @@ function updatePreview(){
   }
 }
 
-function saveEntry(){
+async function saveEntry(){
   const day=parseInt(document.getElementById('f-day')?.value);
   const month=parseInt(document.getElementById('f-month')?.value);
   const shift=document.getElementById('f-shift')?.value;
@@ -477,16 +516,21 @@ function saveEntry(){
   if(!staff.length){showToast('⚠️ เลือกผู้ไลฟ์อย่างน้อย 1 คน');return;}
   if(!total){showToast('⚠️ กรอกยอดขายก่อนนะคะ');return;}
   const entry={id:Date.now(),day,month,shift,staff,tt,sp,ot,total,avg:Math.round(total/staff.length),count:staff.length};
-  data.push(entry);
-  saveData();
-  showToast(`✅ บันทึกวันที่ ${day} ${MONTHS_SH[month]} ยอด ${fmt(total)} ฿`);
-  ['f-tt','f-sp','f-ot','f-day'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  getActive().forEach(s=>{
-    const chk=document.getElementById('chk-'+s.name);if(chk)chk.checked=false;
-    document.getElementById('cb-'+s.name)?.classList.remove('checked');
-  });
-  document.getElementById('preview')?.classList.remove('show');
-  renderRecentList();
+  try{
+    showLoading(true);
+    await gasCall({action:'saveEntry', entry:JSON.stringify(entry)});
+    data.push(entry);
+    updateHeader();
+    showToast(`✅ บันทึกวันที่ ${day} ${MONTHS_SH[month]} ยอด ${fmt(total)} ฿`);
+    ['f-tt','f-sp','f-ot','f-day'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    getActive().forEach(s=>{
+      const chk=document.getElementById('chk-'+s.name);if(chk)chk.checked=false;
+      document.getElementById('cb-'+s.name)?.classList.remove('checked');
+    });
+    document.getElementById('preview')?.classList.remove('show');
+    renderRecentList();
+  }catch(e){showToast('❌ บันทึกไม่สำเร็จ ลองใหม่ค่ะ');}
+  finally{showLoading(false);}
 }
 
 function renderRecentList(){
@@ -953,37 +997,37 @@ function renderStaff(){
   </div>`;
 }
 
-function addStaff(){
+async function addStaff(){
   const name=document.getElementById('new-staff-name').value.trim();
   if(!name){showToast('⚠️ กรุณากรอกชื่อ');return;}
   if(staffList.find(s=>s.name===name)){showToast('⚠️ มีชื่อนี้อยู่แล้ว');return;}
   staffList.push({name,status:'active',colorIdx:nextColorIdx()});
-  saveStaff();
+  await saveStaff();
   document.getElementById('new-staff-name').value='';
   showToast(`✅ เพิ่ม ${name} แล้ว`);
   renderStaff();
 }
 
-function setStaffStatus(name,status){
+async function setStaffStatus(name,status){
   const s=staffList.find(x=>x.name===name);
-  if(s){s.status=status;saveStaff();}
+  if(s){s.status=status; await saveStaff();}
   const labels={active:'Active แล้ว',inactive:'พักงานแล้ว',resigned:'บันทึกการลาออกแล้ว'};
   showToast(`${name} — ${labels[status]}`);
   renderStaff();
 }
 
-function confirmResign(name){
+async function confirmResign(name){
   if(confirm(`ยืนยันว่า ${name} ลาออก?\nสถิติทั้งหมดจะยังคงอยู่ แต่จะไม่แสดงในตัวเลือกผู้ไลฟ์อีกต่อไป`)){
-    setStaffStatus(name,'resigned');
+    await setStaffStatus(name,'resigned');
   }
 }
 
-function removeStaff(name){
+async function removeStaff(name){
   const rounds=data.filter(r=>r.staff.includes(name)).length;
   if(rounds>0){showToast('⚠️ ลบไม่ได้ เพราะมีบันทึกอยู่แล้ว');return;}
   if(!confirm(`ลบ ${name} ออกจากระบบ?`))return;
   staffList=staffList.filter(s=>s.name!==name);
-  saveStaff();
+  await saveStaff();
   showToast(`🗑️ ลบ ${name} แล้ว`);
   renderStaff();
 }
@@ -1021,7 +1065,7 @@ function eToggleCb(e,name){
 
 function closeModal(){document.getElementById('modal-bg').classList.remove('open');}
 
-function saveEdit(){
+async function saveEdit(){
   const id=parseInt(document.getElementById('edit-id').value);
   const idx=data.findIndex(x=>x.id===id);
   if(idx===-1)return;
@@ -1034,26 +1078,55 @@ function saveEdit(){
   const ot=parseFloat(document.getElementById('edit-ot').value)||0;
   const total=tt+sp+ot;
   if(!day||!staff.length||!total){showToast('⚠️ กรุณากรอกข้อมูลให้ครบ');return;}
-  data[idx]={...data[idx],day,shift,staff,tt,sp,ot,total,avg:Math.round(total/staff.length),count:staff.length};
-  saveData();
-  closeModal();
-  showToast('✅ แก้ไขเรียบร้อยแล้ว');
-  sw(curTab);
+  const updated={...data[idx],day,shift,staff,tt,sp,ot,total,avg:Math.round(total/staff.length),count:staff.length};
+  try{
+    showLoading(true);
+    await gasCall({action:'updateEntry', entry:JSON.stringify(updated)});
+    data[idx]=updated;
+    updateHeader();
+    closeModal();
+    showToast('✅ แก้ไขเรียบร้อยแล้ว');
+    sw(curTab);
+  }catch(e){showToast('❌ แก้ไขไม่สำเร็จ');}
+  finally{showLoading(false);}
 }
 
-function delEntry(id){
+async function delEntry(id){
   if(!confirm('ลบรายการนี้?'))return;
-  data=data.filter(r=>r.id!==id);
-  saveData();
-  showToast('🗑️ ลบแล้ว');
-  sw(curTab);
+  try{
+    showLoading(true);
+    await gasCall({action:'deleteEntry', id:String(id)});
+    data=data.filter(r=>r.id!==id);
+    updateHeader();
+    showToast('🗑️ ลบแล้ว');
+    sw(curTab);
+  }catch(e){showToast('❌ ลบไม่สำเร็จ');}
+  finally{showLoading(false);}
 }
 
 /* ===== INIT ===== */
-loadData();
-loadStaff();
-updateHeader();
-sw('input');
+async function init(){
+  // แสดง loading ก่อน
+  document.getElementById('tab-input').innerHTML = `
+    <div class="card" style="text-align:center;padding:3rem">
+      <div style="font-size:32px;margin-bottom:12px">⏳</div>
+      <div style="font-size:14px;color:var(--text2)">กำลังโหลดข้อมูลจาก Google Sheets...</div>
+    </div>`;
+
+  await loadStaff();
+  await loadData();
+  updateHeader();
+
+  // โหลดข้อมูลใหม่ทุก 30 วินาที (ให้คนอื่นเห็น real-time)
+  setInterval(async ()=>{
+    await loadData();
+    if(curTab!=='input') sw(curTab);
+  }, 30000);
+
+  sw('input');
+}
+
+init();
 </script>
 </body>
 </html>
