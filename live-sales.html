@@ -730,159 +730,207 @@ function renderPerson(){
 /* ===== INSIGHT TAB ===== */
 function renderInsight(){
   const el=document.getElementById('tab-insight');
-  // insight ใช้ข้อมูลทั้งหมด (ไม่กรองเดือน) เพื่อให้วิเคราะห์ได้ครบ
-  const fd=data;
-  const fdFiltered=getFiltered(); // ใช้แค่แสดง label ว่ากรองเดือนอะไร
-  if(fd.length<1){el.innerHTML=`<div class="empty"><div class="empty-icon">🏆</div><div class="empty-text">ยังไม่มีข้อมูล กรอกยอดไลฟ์ก่อนนะคะ</div></div>`;return;}
+  if(!data.length){el.innerHTML=`<div class="empty"><div class="empty-icon">🏆</div><div class="empty-text">ยังไม่มีข้อมูล กรอกยอดไลฟ์ก่อนนะคะ</div></div>`;return;}
+  // เลือก dataset ตามโหมด: เดือนปัจจุบัน หรือ ทั้งปี
+  const isYearMode = curMonth===-1;
+  const fd = isYearMode ? data : data.filter(r=>r.month===curMonth);
+  const modeLabel = isYearMode ? 'ทั้งปี 2569 (รวมทุกเดือน)' : MONTHS_TH[curMonth]+' 2569';
+  const modeIcon = isYearMode ? '🗓️' : '📅';
 
-  const soloRows=fd.filter(r=>isSolo(r));
-  const pairRows=fd.filter(r=>isPair(r));
-
-  // === 1. เดี่ยว ranking ===
-  const soloStats=getPeople().map((p)=>{
-    const rows=soloRows.filter(r=>r.staff[0]===p||r.staff.includes(p)&&r.staff.length===1);
-    if(!rows.length)return null;
-    const total=rows.reduce((s,r)=>s+r.total,0);
-    const avg=Math.round(total/rows.length);
-    const max=Math.max(...rows.map(r=>r.total));
-    const s=getStaffByName(p);
-    return {name:p,i:s?s.colorIdx:0,count:rows.length,total,avg,max};
-  }).filter(Boolean).sort((a,b)=>b.avg-a.avg);
-
-  // === 2. คู่ ranking ===
-  const pairMap={};
-  pairRows.forEach(r=>{
-    if(r.staff.length===2){
-      const key=[...r.staff].sort().join(' + ');
-      if(!pairMap[key]){pairMap[key]={key,names:r.staff,rows:[]};}
-      pairMap[key].rows.push(r);
-    }
-  });
-  const pairStats=Object.values(pairMap).map(p=>{
-    const rows=p.rows;
-    const total=rows.reduce((s,r)=>s+r.total,0);
-    const avg=Math.round(total/rows.length);
-    const max=Math.max(...rows.map(r=>r.total));
-    return {...p,count:rows.length,total,avg,max};
-  }).sort((a,b)=>b.avg-a.avg);
-
-  // === 3. เฉลี่ยรอบเท่ากัน (normalized per round) ===
-  const allPersonStats=getPeople().map((p)=>{
-    const s=getStaffByName(p);
-    const rows=fd.filter(r=>r.staff.includes(p));
-    if(!rows.length)return null;
-    const avg=Math.round(rows.reduce((s,r)=>s+r.avg,0)/rows.length);
-    return {name:p,i:s?s.colorIdx:0,count:rows.length,avg,total:rows.reduce((s,r)=>s+r.avg,0)};
-  }).filter(Boolean).sort((a,b)=>b.avg-a.avg);
-
-  const normalRounds=10;
-  const normalStats=allPersonStats.map(p=>({...p,projected:p.avg*normalRounds})).sort((a,b)=>b.projected-a.projected);
-  const maxNorm=normalStats[0]?.projected||1;
-
-  const soloVsPair=getPeople().map((p)=>{
-    const solo=soloRows.filter(r=>r.staff.includes(p));
-    const pair=pairRows.filter(r=>r.staff.includes(p));
-    if(!solo.length&&!pair.length)return null;
-    const soloAvg=solo.length?Math.round(solo.reduce((s,r)=>s+r.avg,0)/solo.length):null;
-    const pairAvg=pair.length?Math.round(pair.reduce((s,r)=>s+r.avg,0)/pair.length):null;
-    const better=soloAvg&&pairAvg?(soloAvg>pairAvg?'เดี่ยว':'คู่'):soloAvg?'เดี่ยว':pairAvg?'คู่':'—';
-    return {name:p,soloAvg,pairAvg,soloCount:solo.length,pairCount:pair.length,better};
-  }).filter(Boolean);
-
-  el.innerHTML=`
-  <!-- SOLO RANKING -->
-  <div class="insight-card">
-    <div class="insight-title">🎤 อันดับไลฟ์เดี่ยว (เฉลี่ย/รอบ) — ข้อมูลทั้งปี</div>
-    ${soloStats.length?soloStats.map((p,rank)=>{
-      const medal=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':'';
-      const c=avColForName(p.name);
-      return `<div class="pair-card">
-        <div class="pair-names">${medal} <div style="width:30px;height:30px;border-radius:50%;background:${c.bg};color:${c.c};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${p.name.slice(0,2)}</div> ${p.name}</div>
-        <div class="pair-stats">
-          <div class="pair-gmv">${fmtK(p.avg)} ฿/รอบ</div>
-          <div class="pair-sub">${p.count} รอบ · สูงสุด ${fmtK(p.max)} ฿</div>
+  if(!fd.length){
+    el.innerHTML=`
+      <div style="background:var(--amber-bg);border:1.5px solid var(--border2);border-radius:var(--r);padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">${modeIcon}</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--amber)">${modeLabel}</div>
+          <div style="font-size:11px;color:var(--text3)">เลือกเดือนที่มีข้อมูล หรือสลับไป "ทั้งปี" ที่แถบด้านบนค่ะ</div>
         </div>
-      </div>`;
-    }).join(''):'<div class="empty" style="padding:1rem">ยังไม่มีข้อมูลไลฟ์เดี่ยว</div>'}
-  </div>
+      </div>
+      <div class="empty"><div class="empty-icon">📭</div><div class="empty-text">ยังไม่มีข้อมูลสำหรับ${modeLabel}</div></div>`;
+    return;
+  }
 
-  <!-- PAIR RANKING -->
-  <div class="insight-card">
-    <div class="insight-title">👫 คู่ปัง! อันดับไลฟ์คู่ (เฉลี่ย/รอบ) — ข้อมูลทั้งปี</div>
-    ${pairStats.length?pairStats.map((p,rank)=>{
-      const medal=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':'';
-      const names=p.key.split(' + ');
-      return `<div class="pair-card">
-        <div class="pair-names">${medal} ${names.map(n=>avEl(n,28)).join('')} <span style="font-size:13px">${p.key}</span></div>
-        <div class="pair-stats">
-          <div class="pair-gmv">${fmtK(p.avg)} ฿/รอบ</div>
-          <div class="pair-sub">${p.count} รอบ · สูงสุด ${fmtK(p.max)} ฿</div>
-        </div>
-      </div>`;
-    }).join(''):'<div class="empty" style="padding:1rem">ยังไม่มีข้อมูลไลฟ์คู่</div>'}
-  </div>
+  function buildInsightData(rows){
+    const soloRows=rows.filter(r=>isSolo(r));
+    const pairRows=rows.filter(r=>isPair(r));
+    // solo stats
+    const soloStats=getPeople().map(p=>{
+      const pr=soloRows.filter(r=>r.staff.includes(p)&&r.staff.length===1);
+      if(!pr.length)return null;
+      const total=pr.reduce((s,r)=>s+r.total,0);
+      const avg=Math.round(total/pr.length);
+      return {name:p,count:pr.length,total,avg,max:Math.max(...pr.map(r=>r.total))};
+    }).filter(Boolean).sort((a,b)=>b.avg-a.avg);
+    // pair stats
+    const pairMap={};
+    pairRows.forEach(r=>{
+      if(r.staff.length===2){
+        const key=[...r.staff].sort().join(' + ');
+        if(!pairMap[key])pairMap[key]={key,rows:[]};
+        pairMap[key].rows.push(r);
+      }
+    });
+    const pairStats=Object.values(pairMap).map(p=>{
+      const total=p.rows.reduce((s,r)=>s+r.total,0);
+      const avg=Math.round(total/p.rows.length);
+      return {...p,count:p.rows.length,total,avg,max:Math.max(...p.rows.map(r=>r.total))};
+    }).sort((a,b)=>b.avg-a.avg);
+    // all person avg
+    const allStats=getPeople().map(p=>{
+      const s=getStaffByName(p);
+      const pr=rows.filter(r=>r.staff.includes(p));
+      if(!pr.length)return null;
+      const total=pr.reduce((s,r)=>s+r.avg,0);
+      const avg=Math.round(total/pr.length);
+      const solo=soloRows.filter(r=>r.staff.includes(p));
+      const pair=pairRows.filter(r=>r.staff.includes(p));
+      const soloAvg=solo.length?Math.round(solo.reduce((s,r)=>s+r.avg,0)/solo.length):null;
+      const pairAvg=pair.length?Math.round(pair.reduce((s,r)=>s+r.avg,0)/pair.length):null;
+      const better=soloAvg&&pairAvg?(soloAvg>pairAvg?'เดี่ยว':'คู่'):soloAvg?'เดี่ยว':pairAvg?'คู่':'—';
+      return {name:p,i:s?s.colorIdx:0,count:pr.length,avg,total,max:Math.max(...pr.map(r=>r.avg)),
+              soloAvg,pairAvg,soloCount:solo.length,pairCount:pair.length,better};
+    }).filter(Boolean).sort((a,b)=>b.avg-a.avg);
+    const normalRounds=10;
+    const normalStats=allStats.map(p=>({...p,projected:p.avg*normalRounds})).sort((a,b)=>b.projected-a.projected);
+    return {soloStats,pairStats,allStats,normalStats,soloRows,pairRows};
+  }
 
-  <!-- SOLO VS PAIR PER PERSON -->
-  <div class="insight-card">
-    <div class="insight-title">⚖️ เดี่ยว vs คู่ — แต่ละคนเหมาะอะไร?</div>
-    <div style="overflow-x:auto">
-    <table class="tbl" style="min-width:420px">
-      <thead><tr>
-        <th>ชื่อ</th>
-        <th style="text-align:right">เดี่ยว เฉลี่ย/รอบ</th>
-        <th style="text-align:right">คู่ เฉลี่ย/รอบ</th>
-        <th style="text-align:center">เหมาะกับ</th>
-      </tr></thead>
-      <tbody>
-      ${soloVsPair.map(p=>{
-        const better=p.better;
-        const chip=better==='เดี่ยว'?'<span class="badge b-solo">🎤 เดี่ยวปัง</span>':
-                   better==='คู่'?'<span class="badge b-pair">👫 คู่ปัง</span>':
-                   '<span class="badge" style="background:var(--bg3);color:var(--text3)">ยังไม่มีครบ</span>';
-        return `<tr>
-          <td>${avEl(p.name,22)} ${p.name}</td>
-          <td style="text-align:right;color:var(--teal);font-weight:600">${p.soloAvg?fmtK(p.soloAvg)+' ฿':'—'} <span style="color:var(--text3);font-size:10px">(${p.soloCount}รอบ)</span></td>
-          <td style="text-align:right;color:var(--pink);font-weight:600">${p.pairAvg?fmtK(p.pairAvg)+' ฿':'—'} <span style="color:var(--text3);font-size:10px">(${p.pairCount}รอบ)</span></td>
-          <td style="text-align:center">${chip}</td>
-        </tr>`;
-      }).join('')}
-      </tbody>
-    </table>
+  function renderInsightBlock(d, label){
+    const {soloStats,pairStats,allStats,normalStats}=d;
+    const maxNorm=normalStats[0]?.projected||1;
+    return `
+    <div class="insight-card">
+      <div class="insight-title">🎤 เดี่ยวปัง — อันดับไลฟ์เดี่ยว (เฉลี่ย/รอบ)</div>
+      ${soloStats.length?soloStats.map((p,rank)=>{
+        const medal=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':'';
+        const c=avColForName(p.name);
+        return `<div class="pair-card">
+          <div class="pair-names">${medal} <div style="width:28px;height:28px;border-radius:50%;background:${c.bg};color:${c.c};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${p.name.slice(0,2)}</div> ${p.name}</div>
+          <div class="pair-stats"><div class="pair-gmv">${fmtK(p.avg)} ฿/รอบ</div><div class="pair-sub">${p.count} รอบ · สูงสุด ${fmtK(p.max)} ฿</div></div>
+        </div>`;
+      }).join(''):'<div class="empty" style="padding:.8rem;font-size:12px">ยังไม่มีข้อมูลไลฟ์เดี่ยว</div>'}
     </div>
-  </div>
+    <div class="insight-card">
+      <div class="insight-title">👫 คู่ปัง — อันดับไลฟ์คู่ (เฉลี่ย/รอบ)</div>
+      ${pairStats.length?pairStats.map((p,rank)=>{
+        const medal=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':'';
+        const names=p.key.split(' + ');
+        return `<div class="pair-card">
+          <div class="pair-names">${medal} ${names.map(n=>avEl(n,26)).join('')} <span style="font-size:12px">${p.key}</span></div>
+          <div class="pair-stats"><div class="pair-gmv">${fmtK(p.avg)} ฿/รอบ</div><div class="pair-sub">${p.count} รอบ · สูงสุด ${fmtK(p.max)} ฿</div></div>
+        </div>`;
+      }).join(''):'<div class="empty" style="padding:.8rem;font-size:12px">ยังไม่มีข้อมูลไลฟ์คู่</div>'}
+    </div>
+    <div class="insight-card">
+      <div class="insight-title">⚖️ เดี่ยว vs คู่ — แต่ละคนเหมาะอะไร?</div>
+      <div style="overflow-x:auto"><table class="tbl" style="min-width:380px">
+        <thead><tr>
+          <th>ชื่อ</th>
+          <th style="text-align:right">🎤 เดี่ยว เฉลี่ย</th>
+          <th style="text-align:right">👫 คู่ เฉลี่ย</th>
+          <th style="text-align:center">ปัง</th>
+        </tr></thead>
+        <tbody>
+        ${allStats.map(p=>{
+          const chip=p.better==='เดี่ยว'?'<span class="badge b-solo">🎤 เดี่ยว</span>':
+                     p.better==='คู่'?'<span class="badge b-pair">👫 คู่</span>':
+                     '<span style="font-size:10px;color:var(--text3)">ยังไม่ครบ</span>';
+          return `<tr>
+            <td>${avEl(p.name,20)} ${p.name}</td>
+            <td style="text-align:right;color:var(--teal);font-weight:600">${p.soloAvg?fmtK(p.soloAvg)+' ฿':'—'} <span style="color:var(--text3);font-size:10px">(${p.soloCount}รอบ)</span></td>
+            <td style="text-align:right;color:var(--pink);font-weight:600">${p.pairAvg?fmtK(p.pairAvg)+' ฿':'—'} <span style="color:var(--text3);font-size:10px">(${p.pairCount}รอบ)</span></td>
+            <td style="text-align:center">${chip}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table></div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-title">📐 ถ้าทุกคนไลฟ์ 10 รอบเท่ากัน — ใครทำยอดได้มากสุด?</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">คำนวณจากยอดเฉลี่ย/รอบ × 10</div>
+      ${normalStats.map((p,rank)=>{
+        const medal=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':'';
+        const w=Math.round(p.projected/maxNorm*100);
+        const bc=barColForName(p.name);
+        return `<div class="kpi-row">
+          <div class="kn">${avEl(p.name)} ${p.name}</div>
+          <div class="bt"><div class="bf" style="width:${w}%;background:${bc}"></div></div>
+          <div class="kv" style="color:${bc}">${fmtK(p.projected)} ฿ ${medal}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="insight-card">
+      <div class="insight-title">💰 อันดับเฉลี่ย/รอบ (รวมทุกแบบ)</div>
+      ${allStats.map((p,rank)=>{
+        const medal=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':'';
+        const c=avColForName(p.name);
+        return `<div class="pair-card">
+          <div class="pair-names">${medal} <div style="width:28px;height:28px;border-radius:50%;background:${c.bg};color:${c.c};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${p.name.slice(0,2)}</div> ${p.name}</div>
+          <div class="pair-stats"><div class="pair-gmv">${fmtK(p.avg)} ฿/รอบ</div><div class="pair-sub">${p.count} รอบ</div></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
 
-  <!-- NORMALIZED: ถ้าไลฟ์เท่ากัน -->
-  <div class="insight-card">
-    <div class="insight-title">📐 ถ้าทุกคนไลฟ์ ${normalRounds} รอบเท่ากัน — ใครทำยอดได้มากสุด?</div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">คำนวณจากยอดเฉลี่ย/รอบ × ${normalRounds} รอบ (ไม่รวมจำนวนรอบจริง)</div>
-    ${normalStats.map((p,rank)=>{
-      const medal=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':'';
-      const w=Math.round(p.projected/maxNorm*100);
-      const bc=barColForName(p.name);
-      return `<div class="kpi-row">
-        <div class="kn">${avEl(p.name)} ${p.name}</div>
-        <div class="bt"><div class="bf" style="width:${w}%;background:${bc}"></div></div>
-        <div class="kv" style="color:${bc}">${fmtK(p.projected)} ฿ <span style="color:var(--text3);font-size:10px;font-weight:400">${medal}</span></div>
-      </div>`;
-    }).join('')}
-    <div style="font-size:10px;color:var(--text3);margin-top:8px">* ยอดจริงอาจต่างกัน ขึ้นอยู่กับจำนวนรอบที่ไลฟ์จริง</div>
-  </div>
+  // ถ้าเป็นโหมดทั้งปี: แสดงสรุปแต่ละเดือน + รวมทั้งปี
+  if(isYearMode){
+    // หาเดือนที่มีข้อมูล
+    const monthsWithData=[...new Set(data.map(r=>r.month))].sort((a,b)=>a-b);
+    const yearData=buildInsightData(data);
 
-  <!-- RANKING ALL: เฉลี่ยต่อรอบ -->
-  <div class="insight-card">
-    <div class="insight-title">💰 อันดับยอดเฉลี่ย/รอบ (รวมทุกแบบ)</div>
-    ${allPersonStats.map((p,rank)=>{
-      const medal=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':'';
-      const c=avColForName(p.name);
-      return `<div class="pair-card">
-        <div class="pair-names">${medal} <div style="width:28px;height:28px;border-radius:50%;background:${c.bg};color:${c.c};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${p.name.slice(0,2)}</div> ${p.name}</div>
-        <div class="pair-stats">
-          <div class="pair-gmv">${fmtK(p.avg)} ฿/รอบ</div>
-          <div class="pair-sub">${p.count} รอบ</div>
+    el.innerHTML=`
+      <div style="background:linear-gradient(135deg,var(--amber-bg),var(--amber-light));border:1.5px solid var(--border2);border-radius:var(--r);padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">🗓️</span>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--amber)">รวมทั้งปี 2569</div>
+          <div style="font-size:11px;color:var(--text3)">วิเคราะห์จากข้อมูลทุกเดือนรวมกัน (${data.length} รอบ)</div>
+        </div>
+      </div>
+      ${renderInsightBlock(yearData,'ทั้งปี')}
+
+      <div style="margin:20px 0 10px;padding:10px 14px;background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--r)">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">📊 เปรียบเทียบเดือนต่อเดือน — เลือกดูรายเดือนได้ที่แถบด้านบน</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${monthsWithData.map(m=>{
+            const mData=data.filter(r=>r.month===m);
+            const mGmv=mData.reduce((s,r)=>s+r.total,0);
+            const topPerson=getPeople().map(p=>({name:p,total:mData.filter(r=>r.staff.includes(p)).reduce((s,r)=>s+r.avg,0)})).sort((a,b)=>b.total-a.total)[0];
+            return `<div style="background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);padding:8px 12px;min-width:100px;cursor:pointer" onclick="setMonth(${m})">
+              <div style="font-size:11px;font-weight:700;color:var(--amber)">${MONTHS_SH[m]}</div>
+              <div style="font-size:13px;font-weight:700;color:var(--text);font-family:Kanit,sans-serif">${fmtK(mGmv)} ฿</div>
+              <div style="font-size:10px;color:var(--text3)">${mData.length} รอบ ${topPerson?'· ⭐'+topPerson.name:''}</div>
+            </div>`;
+          }).join('')}
         </div>
       </div>`;
-    }).join('')}
-  </div>`;
+  } else {
+    // โหมดรายเดือน
+    const monthData=buildInsightData(fd);
+    // เปรียบเทียบกับเดือนก่อนหน้า
+    const prevMonth=curMonth>0?curMonth-1:-1;
+    const prevData=prevMonth>=0?data.filter(r=>r.month===prevMonth):[];
+    const curGmv=fd.reduce((s,r)=>s+r.total,0);
+    const prevGmv=prevData.reduce((s,r)=>s+r.total,0);
+    const diff=prevGmv?Math.round((curGmv-prevGmv)/prevGmv*100):null;
+    const diffTxt=diff!==null?(diff>=0?`▲ +${diff}% จากเดือนที่แล้ว`:`▼ ${diff}% จากเดือนที่แล้ว`):'(เดือนแรกที่มีข้อมูล)';
+    const diffCol=diff===null?'var(--text3)':diff>=0?'var(--teal)':'var(--red)';
+
+    el.innerHTML=`
+      <div style="background:linear-gradient(135deg,var(--amber-bg),var(--amber-light));border:1.5px solid var(--border2);border-radius:var(--r);padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px">📅</span>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--amber)">${MONTHS_TH[curMonth]} 2569</div>
+            <div style="font-size:11px;color:var(--text3)">${fd.length} รอบ · ยอดรวม ${fmtK(curGmv)} ฿</div>
+          </div>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:${diffCol}">${diffTxt}</div>
+      </div>
+      ${renderInsightBlock(monthData,MONTHS_TH[curMonth])}
+      <div style="text-align:center;padding:10px 0;font-size:12px;color:var(--text3)">
+        เลือก "ทั้งปี" ที่แถบด้านบนเพื่อดูสรุปรวมทั้งปีค่ะ
+      </div>`;
+  }
 }
 
 /* ===== LOG TAB ===== */
